@@ -1,0 +1,241 @@
+OrderDate,Region,Category,CustomerSegment,Revenue,Cost,Quantity,IsReturned
+2025-11-24,North,Electronics,Consumer,3317.1,2249.93,9,1
+2025-02-17,South,Furniture,Consumer,520.97,392.41,1,0
+2025-03-23,Highland,Appliances,SMB,1168.93,720.76,9,0
+2025-01-23,Highland,Appliances,Consumer,1786.58,1095.51,4,0
+2025-12-27,North,Electronics,Consumer,6202.1,4410.82,8,0
+2025-03-25,Central,Office Supplies,Enterprise,215.33,163.92,9,0
+2025-05-19,Highland,Accessories,Enterprise,705.8,533.4,11,0
+2025-10-18,Highland,Office Supplies,Enterprise,1157.7,793.34,16,0
+2025-10-27,East,Accessories,SMB,319.16,253.31,12,0
+2025-12-15,East,Accessories,Enterprise,1826.62,1492.8,13,0
+2025-12-16,West,Office Supplies,Consumer,788.87,597.01,11,0
+2025-04-02,West,Electronics,Consumer,8280.85,4895.31,10,0
+2025-01-01,West,Office Supplies,SMB,138.17,105.31,1,0
+2025-02-10,North,Appliances,Enterprise,5875.48,3587.66,18,0
+2025-04-19,West,Furniture,Consumer,4961.45,3773.2,10,1
+2025-01-11,West,Accessories,Enterprise,195.18,144.57,8,0
+2025-05-23,Highland,Appliances,Enterprise,5278.47,3305.38,18,0
+2025-02-19,Highland,Appliances,SMB,5193.8,4183.36,14,0
+2025-02-25,South,Furniture,Enterprise,6412.57,4576.32,18,0
+2025-10-09,North,Electronics,Consumer,14827.34,10430.23,18,0
+2025-07-25,North,Furniture,SMB,268.51,158.49,1,0
+2025-10-12,Highland,Appliances,Enterprise,2262.01,1823.81,7,0
+2025-09-15,West,Furniture,Enterprise,3809.05,3013.82,17,0
+2025-05-07,West,Accessories,Enterprise,145.79,94.49,3,0
+2025-07-22,South,Office Supplies,SMB,177.81,141.54,11,0
+2025-09-17,Central,Furniture,SMB,980.81,660.28,3,0
+2025-12-01,West,Electronics,Consumer,7389.39,5869.48,18,0
+2025-05-20,Central,Accessories,Enterprise,1614.22,995.87,11,0
+2025-08-05,Central,Electronics,Enterprise,8511.38,6105.68,11,1
+2025-02-08,Highland,Furniture,Consumer,892.41,539.23,2,0
+2025-01-21,Central,Furniture,Consumer,2544.48,1628.79,8,0
+2025-05-02,South,Furniture,SMB,637.71,410.42,1,0
+2025-03-23,Highland,Electronics,SMB,1682.23,1058.32,2,0
+2025-01-13,Highland,Furniture,SMB,1747.63,1148.05,11,0
+2025-06-19,North,Electronics,SMB,3762.32,2374.99,6,0
+2025-09-19,North,Appliances,Consumer,3415.98,2211.29,7,0
+2025-12-10,South,Office Supplies,SMB,278.68,168.32,3,0
+2025-12-08,East,Office Supplies,SMB,981.16,763.57,10,0
+2025-07-27,West,Electronics,SMB,3418.41,2248.8,10,0
+2025-03-28,Highland,Electronics,SMB,11749.85,8759.51,17,0
+2025-03-17,North,Electronics,Enterprise,10410.9,6742.07,16,0
+2025-07-24,South,Furniture,Consumer,601.85,377.37,1,0
+2025-08-26,North,Accessories,Enterprise,413.45,244.76,4,0
+2025-11-10,Highland,Accessories,SMB,2254.48,1394.24,18,0
+2025-09-24,East,Furniture,SMB,4200.12,3304.61,15,0
+2025-12-22,South,Furniture,Enterprise,5934.07,3577.29,14,0
+2025-12-23,North,Accessories,SMB,2455.68,1766.7,16,0
+2025-10-07,West,Furniture,SMB,3135.68,2026.27,8,0
+2025-03-07,West,Accessories,Enterprise,1837.67,1426.74,13,0
+2025-06-17,South,Appliances,SMB,4925.0,3941.69,11,1
+2025-10-04,North,Office Supplies,Enterprise,327.84,267.23,3,0
+2025-03-06,East,Electronics,Consumer,3766.53,2439.18,7,0
+2025-03-25,Central,Electronics,Consumer,895.24,691.48,1,0
+2025-11-18,South,Electronics,Consumer,8347.26,6149.19,10,0
+2025-07-09,North,Accessories,Consumer,777.77,471.35,11,0
+2025-03-20,East,Furniture,Consumer,4611.18,3299.12,17,0
+2025-05-18,Central,Furniture,Enterprise,2309.07,1877.53,9,0
+2025-04-04,East,Furniture,SMB,5516.81,3268.52,9,0
+2025-07-28,East,Accessories,Enterprise,816.38,533.89,16,0
+2025-10-25,Central,Appliances,Consumer,4101.73,3061.57,17,0
+2025-04-09,Central,Electronics,Consumer,16419.16,11140.39,18,0
+2025-11-02,Central,Electronics,Enterprise,3551.62,2081.85,10,0
+2025-12-24,South,Appliances,Enterprise,169.28,100.58,1,0
+2025-02-03,East,Appliances,Enterprise,253.26,173.75,2,0
+2025-11-02,West,Furniture,Consumer,4783.01,3209.18,13,0
+2025-02-20,South,Furniture,SMB,652.01,441.73,3,0
+2025-04-29,Central,Office Supplies,Consumer,721.04,452.14,15,0
+2025-02-28,West,Furniture,Consumer,2914.57,1866.05,5,0
+2025-05-28,East,Electronics,SMB,7187.95,5825.35,10,0
+2025-06-15,West,Office Supplies,Enterprise,367.69,234.02,3,0
+2025-10-23,North,Furniture,SMB,10761.01,7554.08,17,0
+2025-06-28,East,Office Supplies,SMB,406.84,254.17,4,0
+2025-08-21,North,Office Supplies,SMB,1354.25,827.92,11,0
+2025-01-28,South,Accessories,SMB,2397.99,1714.21,16,0
+2025-03-04,North,Accessories,Enterprise,826.78,655.45,6,0
+2025-11-28,South,Appliances,Consumer,5115.05,3517.6,10,0
+2025-11-03,West,Furniture,Enterprise,5386.24,4413.4,9,0
+2025-10-28,West,Appliances,Enterprise,4855.12,3606.25,15,0
+2025-12-24,South,Accessories,SMB,1183.04,861.85,8,0
+2025-11-30,South,Appliances,Enterprise,2329.51,1616.15,5,0
+2025-03-15,East,Furniture,Enterprise,4294.6,3182.92,16,0
+2025-10-01,East,Office Supplies,Consumer,376.84,218.8,16,0
+2025-08-11,North,Electronics,SMB,4286.29,3129.16,6,0
+2025-09-29,East,Accessories,Consumer,322.3,193.68,6,0
+2025-08-25,Highland,Office Supplies,SMB,658.41,528.22,9,0
+2025-10-28,Central,Appliances,Consumer,4112.41,2995.78,9,0
+2025-06-01,Highland,Office Supplies,Enterprise,1309.42,883.15,13,0
+2025-05-27,South,Accessories,SMB,898.28,555.85,8,0
+2025-11-18,Highland,Electronics,SMB,3085.36,2222.32,15,0
+2025-10-04,Central,Accessories,Consumer,1196.18,766.54,9,0
+2025-02-28,East,Electronics,Enterprise,6738.47,4934.0,8,0
+2025-01-08,Central,Accessories,Enterprise,1640.95,1199.28,15,0
+2025-08-30,North,Accessories,Consumer,1620.46,1211.25,11,0
+2025-03-13,North,Electronics,SMB,4310.6,2552.52,16,0
+2025-10-04,East,Accessories,Consumer,757.34,570.17,5,0
+2025-04-22,East,Appliances,Enterprise,6125.67,4437.72,12,0
+2025-03-04,East,Electronics,Consumer,4718.79,3726.8,7,0
+2025-02-05,West,Furniture,Consumer,1753.35,1321.07,7,0
+2025-03-08,West,Office Supplies,Enterprise,67.43,50.05,4,0
+2025-01-27,South,Appliances,Consumer,1242.77,868.79,4,0
+2025-01-23,Highland,Accessories,SMB,1195.17,949.07,15,0
+2025-08-16,North,Electronics,SMB,1152.88,670.16,5,0
+2025-08-21,West,Accessories,SMB,388.75,238.02,4,0
+2025-04-27,East,Office Supplies,SMB,888.49,696.01,13,0
+2025-02-04,North,Electronics,Enterprise,3560.96,2440.04,14,0
+2025-03-04,East,Office Supplies,Consumer,1904.7,1297.67,14,0
+2025-12-03,East,Furniture,Enterprise,3910.01,2413.11,12,0
+2025-11-15,West,Accessories,Enterprise,622.29,483.18,9,0
+2025-12-03,East,Electronics,Enterprise,250.65,186.79,1,0
+2025-10-18,West,Electronics,Enterprise,1506.03,1059.4,5,0
+2025-05-20,South,Accessories,Enterprise,1360.78,1101.01,12,0
+2025-11-03,North,Electronics,Enterprise,9079.0,6361.0,10,0
+2025-03-08,East,Accessories,Consumer,1125.18,911.22,8,1
+2025-02-09,Central,Accessories,SMB,851.08,534.21,13,0
+2025-12-20,Central,Electronics,SMB,1469.41,1085.18,4,0
+2025-03-28,North,Accessories,Consumer,616.61,410.1,4,0
+2025-02-22,South,Office Supplies,Enterprise,581.63,407.96,6,0
+2025-10-24,East,Accessories,Consumer,901.0,673.34,11,0
+2025-01-29,Central,Accessories,Enterprise,1102.53,645.46,10,0
+2025-11-01,West,Appliances,SMB,8656.05,6706.9,18,0
+2025-09-14,South,Electronics,SMB,3217.78,2608.35,4,0
+2025-08-13,West,Accessories,Consumer,690.27,557.35,6,0
+2025-06-21,North,Office Supplies,Enterprise,1898.4,1158.81,18,0
+2025-10-26,Highland,Furniture,SMB,5111.49,3811.64,10,0
+2025-06-18,South,Accessories,Enterprise,949.8,604.19,14,0
+2025-03-12,South,Electronics,SMB,2283.68,1392.28,4,0
+2025-11-02,East,Furniture,Enterprise,3310.89,2388.46,6,0
+2025-05-02,East,Accessories,SMB,2198.35,1700.28,15,0
+2025-10-20,East,Appliances,SMB,2286.31,1395.75,13,1
+2025-09-04,Central,Accessories,Enterprise,2494.63,1957.38,17,0
+2025-04-24,East,Office Supplies,Enterprise,622.61,506.33,14,0
+2025-11-29,Central,Furniture,Enterprise,1169.33,832.96,2,1
+2025-02-10,North,Office Supplies,Enterprise,404.86,302.72,5,1
+2025-08-03,Highland,Accessories,SMB,276.46,210.64,3,0
+2025-08-08,North,Accessories,SMB,563.88,333.36,8,0
+2025-09-17,West,Electronics,SMB,3416.34,2746.01,16,0
+2025-12-03,Highland,Electronics,Consumer,3109.98,2039.14,11,0
+2025-09-03,Highland,Furniture,Enterprise,1945.26,1181.57,3,0
+2025-06-08,West,Appliances,Consumer,3895.98,2385.15,16,0
+2025-03-05,Central,Appliances,SMB,4550.51,2721.96,15,0
+2025-02-12,Highland,Appliances,Enterprise,3193.69,2112.24,14,0
+2025-11-05,Highland,Appliances,Enterprise,3624.01,2732.89,15,0
+2025-01-30,North,Appliances,SMB,2573.72,1627.84,17,1
+2025-02-04,South,Office Supplies,SMB,444.34,317.02,13,0
+2025-03-12,West,Office Supplies,SMB,320.99,233.4,11,0
+2025-05-15,Central,Appliances,Enterprise,1483.63,1155.1,10,0
+2025-02-14,Highland,Office Supplies,Consumer,615.54,399.92,12,0
+2025-03-31,Central,Accessories,Enterprise,282.1,192.58,4,0
+2025-10-10,South,Accessories,Enterprise,383.05,238.41,3,1
+2025-06-12,Highland,Electronics,SMB,10555.26,8194.35,15,0
+2025-08-10,West,Electronics,Enterprise,5062.97,3008.33,17,0
+2025-02-10,Central,Furniture,Consumer,8460.23,5735.75,18,0
+2025-03-29,Highland,Accessories,Consumer,290.01,193.16,11,0
+2025-11-30,South,Accessories,SMB,87.61,54.92,1,0
+2025-06-02,East,Electronics,Consumer,603.44,370.06,2,0
+2025-06-26,East,Furniture,SMB,5077.98,4045.96,17,0
+2025-07-16,West,Appliances,Enterprise,1029.77,598.26,6,0
+2025-06-07,East,Electronics,Enterprise,7399.5,5188.72,13,0
+2025-12-01,Highland,Appliances,SMB,3667.02,2652.06,18,1
+2025-01-27,West,Accessories,Enterprise,709.93,413.62,12,0
+2025-03-02,South,Electronics,SMB,9504.85,6632.59,12,0
+2025-01-24,North,Furniture,Consumer,4519.09,2695.51,11,0
+2025-07-21,West,Office Supplies,Consumer,838.54,684.25,11,0
+2025-02-26,East,Accessories,SMB,100.99,77.3,1,1
+2025-09-03,South,Accessories,Consumer,460.01,375.12,13,0
+2025-03-19,East,Furniture,SMB,10803.36,8500.73,17,0
+2025-06-16,Highland,Appliances,Consumer,3083.61,1957.24,13,0
+2025-11-26,Highland,Office Supplies,Consumer,1356.17,1015.19,16,0
+2025-04-17,Highland,Appliances,SMB,3321.39,2184.18,16,0
+2025-07-22,Central,Furniture,SMB,1039.84,733.11,2,0
+2025-10-03,Central,Accessories,Consumer,1023.99,709.16,9,0
+2025-01-27,North,Appliances,SMB,5226.43,3775.27,16,0
+2025-09-01,East,Furniture,SMB,1684.44,1082.62,11,0
+2025-01-20,South,Appliances,Enterprise,985.48,589.07,2,0
+2025-01-05,Central,Accessories,Consumer,373.62,226.63,4,0
+2025-09-16,East,Office Supplies,Enterprise,384.14,283.92,4,0
+2025-12-12,South,Furniture,Consumer,5311.24,4175.98,13,0
+2025-05-08,North,Office Supplies,SMB,449.63,340.47,8,0
+2025-05-01,North,Electronics,SMB,3029.82,1982.5,10,0
+2025-06-01,Central,Accessories,Enterprise,578.46,376.89,8,0
+2025-10-03,Highland,Furniture,Enterprise,1247.33,774.71,3,0
+2025-04-14,West,Accessories,Enterprise,609.84,486.76,6,0
+2025-01-29,East,Furniture,Consumer,2132.66,1546.12,14,0
+2025-04-22,West,Electronics,Enterprise,6234.02,3714.81,14,1
+2025-07-29,South,Furniture,Consumer,8668.06,6940.86,14,0
+2025-10-04,South,Office Supplies,Enterprise,185.51,118.45,6,0
+2025-08-26,Highland,Accessories,SMB,834.97,509.29,18,0
+2025-01-17,Highland,Appliances,Consumer,281.97,172.19,1,0
+2025-01-23,East,Appliances,Enterprise,5520.15,3445.74,18,0
+2025-06-13,West,Accessories,Consumer,856.88,646.06,11,0
+2025-10-30,Highland,Furniture,Consumer,2047.57,1421.28,14,0
+2025-07-29,South,Office Supplies,SMB,727.01,455.55,6,0
+2025-10-15,East,Appliances,Consumer,6257.42,3858.88,17,0
+2025-04-08,North,Office Supplies,SMB,220.42,155.38,2,0
+2025-06-20,Central,Electronics,Enterprise,6445.6,4350.42,7,0
+2025-05-03,West,Office Supplies,SMB,696.19,493.01,13,0
+2025-08-29,Central,Furniture,SMB,4785.15,2850.31,11,0
+2025-08-02,Central,Furniture,Enterprise,4829.9,3569.22,11,0
+2025-09-08,Highland,Appliances,SMB,1950.09,1182.83,6,0
+2025-01-31,West,Electronics,Enterprise,1537.08,1257.03,2,0
+2025-07-11,North,Accessories,Consumer,357.47,231.17,16,0
+2025-05-27,North,Accessories,Consumer,571.84,442.57,14,0
+2025-07-01,Central,Appliances,Enterprise,4677.74,2906.12,12,0
+2025-11-29,North,Electronics,SMB,6115.47,3773.98,13,0
+2025-06-19,West,Electronics,Consumer,713.84,427.02,2,0
+2025-05-24,West,Accessories,Consumer,80.37,50.07,2,0
+2025-02-09,Central,Furniture,Consumer,4765.5,3061.65,8,0
+2025-12-19,Highland,Electronics,Consumer,2656.16,1569.35,12,0
+2025-06-17,North,Office Supplies,SMB,990.85,722.11,16,0
+2025-06-01,South,Electronics,Enterprise,2688.75,2136.02,9,1
+2025-06-07,East,Office Supplies,SMB,284.42,231.43,4,0
+2025-02-17,West,Accessories,SMB,1278.36,743.68,13,0
+2025-09-24,South,Appliances,Enterprise,809.5,605.55,5,0
+2025-07-04,Central,Furniture,Consumer,3672.11,2718.35,16,0
+2025-06-18,East,Office Supplies,SMB,509.56,369.14,5,0
+2025-12-22,Highland,Appliances,Consumer,1975.65,1525.3,8,0
+2025-04-03,Highland,Accessories,Enterprise,445.23,274.5,15,0
+2025-12-11,East,Furniture,Consumer,4888.51,2846.25,10,0
+2025-07-25,West,Accessories,Consumer,1332.34,888.45,14,0
+2025-05-08,Highland,Office Supplies,Enterprise,191.69,120.55,2,0
+2025-02-20,Central,Furniture,Consumer,8586.57,5640.58,17,0
+2025-03-19,Central,Electronics,SMB,1629.93,1200.28,4,0
+2025-04-16,West,Appliances,SMB,1902.16,1235.29,16,1
+2025-06-25,Highland,Electronics,Consumer,5376.24,3858.37,6,0
+2025-07-27,Highland,Furniture,Enterprise,7461.12,6110.15,14,0
+2025-05-23,Highland,Electronics,Consumer,3182.47,2097.35,4,0
+2025-11-24,Central,Accessories,SMB,1741.0,1132.63,13,0
+2025-11-11,West,Electronics,Consumer,2105.77,1530.41,5,0
+2025-10-22,East,Appliances,Enterprise,8319.31,5844.2,16,0
+2025-06-11,East,Accessories,Enterprise,1183.46,784.95,12,0
+2025-09-09,East,Appliances,SMB,1293.59,893.84,6,0
+2025-08-23,West,Appliances,Consumer,7548.2,4699.31,17,1
+2025-08-14,West,Furniture,SMB,1944.22,1471.63,4,0
+2025-02-14,East,Electronics,Enterprise,5629.69,4392.08,7,0
+2025-04-16,South,Electronics,Consumer,7078.27,4831.23,12,0
+2025-09-21,Highland,Electronics,Enterprise,12424.33,9443.45,14,0
+2025-05-07,Highland,Appliances,SMB,1421.78,865.54,5,0
+2025-09-21,Highland,Office Supplies,Consumer,1052.93,839.87,12,0
+2025-11-22,Highland,Office Supplies,Enterprise,2125.91,1598.55,18,0
+2025-03-08,West,Appliances,SMB,194.0,151.72,2,0

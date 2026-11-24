@@ -1,0 +1,35 @@
+# Python & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Build & distribution artifacts (upload .zip/.exe to GitHub Releases instead)
+build/
+dist/
+*.spec
+
+# User local workspace data, test runs & auto-generated outputs
+inputs/
+custom_visuals/
+data_warehouse/
+output_pbi/
+reports/
+
+# Personal datasets & active project specs
+merged_flights.csv
+Requirement.md
+c_t_ph_n_t_ch_nghi_p_v_v_thi_t_k_dashboard_power_bi.md
+config/project_blueprint.json
+config/project_spec.yaml
+*.pbip
+*.pbit
+*.parquet
+*.pbiviz
+
+# OS / IDE clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
