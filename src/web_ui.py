@@ -14,6 +14,7 @@ Features:
 - Direct Power BI Desktop Launcher & Live Tabular Data Refresh
 """
 import json
+import shutil
 import socket
 import sys
 import threading
@@ -409,6 +410,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <button class="btn-accent btn-sm" onclick="copyDocByName('Requirement_Template.md')">📋 Copy nội dung mẫu</button>
         <button class="btn-secondary btn-sm" onclick="downloadDocByName('Requirement_Template.md')">⬇️ Tải mẫu về máy</button>
         <button class="btn-secondary btn-sm" onclick="openDocModal('HUONG_DAN_REQUIREMENT.md','Hướng dẫn viết Requirement.md')">📖 Hướng dẫn viết Requirement</button>
+        <button class="btn-danger btn-sm" id="btn-open-cleanup" style="margin-left:auto;" onclick="openCleanupModal()">🧹 Dọn dữ liệu tạm (0 MB)</button>
       </div>
       <div id="pipe-status-bar" style="margin-top:8px;font-size:12px;color:#10b981;display:none;"></div>
     </div>
@@ -791,6 +793,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- STORAGE CLEANUP MODAL -->
+  <div class="modal-backdrop" id="cleanup-backdrop" onclick="if(event.target===this) closeCleanupModal()">
+    <div class="inspector-modal" style="max-width:740px;">
+      <div class="inspector-head">
+        <h2 style="font-size:15px;color:#fca5a5;">🧹 Dọn Dẹp Dữ Liệu Tạm &amp; Giải Phóng Ổ Cứng</h2>
+        <button class="btn-secondary" onclick="closeCleanupModal()">Đóng</button>
+      </div>
+      <div class="inspector-body">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#cbd5e1;line-height:1.5;">
+          💡 <strong>Mẹo tiết kiệm ổ cứng:</strong> Sau khi mở Power BI Desktop và lưu báo cáo thành file riêng (<strong>File → Save As → .pbix</strong>), toàn bộ dữ liệu đã được gói gọn trong file <code>.pbix</code> đó. Bạn có thể xóa các thư mục trung gian bên dưới để máy nhẹ hoàn toàn (không ảnh hưởng file mẫu <code>sample_data/</code>, <code>Requirement_Template.md</code> hay mã nguồn).
+        </div>
+        <div id="cleanup-summary" style="font-size:13px;font-weight:700;color:#93c5fd;margin-bottom:10px;"></div>
+        <div id="cleanup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:10px;border-top:1px solid #334155;">
+          <button class="btn-secondary" onclick="refreshCleanupModal()">🔄 Quét lại dung lượng</button>
+          <button class="btn-accent" onclick="runCleanup(false)">🧹 Xóa Các Mục Đã Chọn</button>
+          <button class="btn-danger" onclick="runCleanup(true)">🗑️ Dọn Toàn Bộ &amp; Reset Dự Án Mới</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- DOCUMENT VIEWER (Requirement template / guide) -->
   <div class="modal-backdrop" id="doc-backdrop" onclick="if(event.target===this) closeDocModal()">
     <div class="inspector-modal" style="max-width:980px;">
@@ -931,6 +955,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       renderCurrentDashboard();
       renderDaxTable();
       renderAuditTab(data.profiling, data.kpi_validation);
+      renderStorageBadge(data.storage);
     }
 
     function populateCatalogCategoryFilter() {
@@ -1646,6 +1671,76 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       else showToast('❌ ' + out.error, true);
     }
 
+    // ---------- Storage cleanup modal ----------
+    let lastStorage = null;
+    function renderStorageBadge(st) {
+      if (!st) return;
+      lastStorage = st;
+      const btn = document.getElementById('btn-open-cleanup');
+      if (btn) btn.innerText = `🧹 Dọn dữ liệu tạm (${st.total_mb} MB)`;
+    }
+    function renderCleanupList(st) {
+      renderStorageBadge(st);
+      document.getElementById('cleanup-summary').innerText = `Tổng dung lượng dữ liệu tạm đang chiếm: ${st.total_mb} MB (${st.total_files.toLocaleString()} file)`;
+      const items = [
+        {key: 'warehouse', label: 'Kho dữ liệu trung gian (data_warehouse/ — Parquet & Clean CSV)', def: true, note: 'Chiếm nhiều dung lượng nhất; an toàn xóa sau khi đã lưu .pbix trong Power BI Desktop.'},
+        {key: 'inputs', label: 'File CSV & Requirement đã tải lên (inputs/)', def: true, note: 'Bản sao file đầu vào trong thư mục ứng dụng.'},
+        {key: 'reports', label: 'Báo cáo kiểm toán & cache ETL (reports/)', def: true, note: 'Kết quả Data Profiling, KPI Validation và cache.'},
+        {key: 'output_pbi', label: 'Thư mục dự án Power BI đã xuất (output_pbi/)', def: false, note: 'Tick chọn nếu bạn đã Save As ra file .pbix riêng ở nơi khác.'},
+        {key: 'blueprint', label: 'Cấu hình dự án đang mở (config/project_blueprint.json)', def: false, note: 'Reset giao diện về trạng thái trống để bắt đầu dự án mới tinh.'},
+      ];
+      const box = document.getElementById('cleanup-list');
+      box.innerHTML = items.map(it => {
+        const info = (st.categories && st.categories[it.key]) || {mb: 0, files: 0};
+        return `<label style="display:flex;align-items:flex-start;gap:10px;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:9px 11px;cursor:pointer;margin:0;font-weight:400;">
+          <input type="checkbox" class="cleanup-chk" value="${it.key}" ${it.def && info.files > 0 ? 'checked' : ''} style="margin-top:3px;" />
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;gap:8px;color:#e2e8f0;font-weight:600;font-size:12px;">
+              <span>${esc(it.label)}</span>
+              <span style="color:${info.mb > 50 ? '#fca5a5' : '#93c5fd'};">${info.mb} MB (${info.files} file)</span>
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${esc(it.note)}</div>
+          </div>
+        </label>`;
+      }).join('');
+    }
+    async function refreshCleanupModal() {
+      const res = await fetch('/api/storage');
+      const out = await res.json();
+      if (out.status === 'ok') renderCleanupList(out.storage);
+    }
+    async function openCleanupModal() {
+      document.getElementById('cleanup-backdrop').classList.add('open');
+      await refreshCleanupModal();
+    }
+    function closeCleanupModal() { document.getElementById('cleanup-backdrop').classList.remove('open'); }
+    async function runCleanup(cleanAll) {
+      const targets = cleanAll
+        ? ['warehouse', 'inputs', 'reports', 'output_pbi', 'blueprint']
+        : [...document.querySelectorAll('.cleanup-chk:checked')].map(el => el.value);
+      if (!targets.length) { showToast('Hãy chọn ít nhất 1 mục cần xóa!', true); return; }
+      const msg = cleanAll
+        ? 'Bạn chắc chắn muốn XÓA TOÀN BỘ dữ liệu tạm, dự án .pbip hiện tại và reset về trạng thái trống?'
+        : `Xác nhận xóa ${targets.length} mục đã chọn khỏi ổ cứng?`;
+      if (!confirm(msg)) return;
+      showToast('⏳ Đang dọn dẹp dữ liệu tạm...');
+      const res = await fetch('/api/cleanup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({targets})
+      });
+      const out = await res.json();
+      if (out.status === 'ok') {
+        let m = `✅ Đã giải phóng ${out.freed_mb} MB (${out.deleted_files} file)!`;
+        if (out.locked && out.locked.length) m += ` ⚠️ Có ${out.locked.length} file đang bị Power BI mở khóa, hãy tắt Power BI Desktop rồi bấm xóa lại.`;
+        showToast(m, !!(out.locked && out.locked.length));
+        renderCleanupList(out.storage);
+        await loadAllData();
+      } else {
+        showToast('❌ Lỗi dọn dẹp: ' + out.error, true);
+      }
+    }
+
     // ---------- Requirement template / guide viewer ----------
     const docCache = {};
     async function fetchDoc(name) {
@@ -1876,6 +1971,100 @@ PACKAGE_DIR = (
 )
 
 
+def _dir_stats(path: Path) -> Dict[str, Any]:
+    total_bytes = 0
+    files = 0
+    if path.exists():
+        for p in path.rglob("*"):
+            if p.is_file() and p.name != ".gitkeep":
+                files += 1
+                try:
+                    total_bytes += p.stat().st_size
+                except OSError:
+                    pass
+    return {"bytes": total_bytes, "mb": round(total_bytes / (1024 * 1024), 2), "files": files}
+
+
+def _inspect_workspace_storage(root: Path) -> Dict[str, Any]:
+    cats = {
+        "warehouse": _dir_stats(root / "data_warehouse"),
+        "inputs": _dir_stats(root / "inputs"),
+        "reports": _dir_stats(root / "reports"),
+        "output_pbi": _dir_stats(root / "output_pbi"),
+    }
+    bp_bytes = 0
+    bp_files = 0
+    for name in ("project_blueprint.json", "project_spec.yaml"):
+        p = root / "config" / name
+        if p.is_file():
+            bp_files += 1
+            bp_bytes += p.stat().st_size
+    cats["blueprint"] = {"bytes": bp_bytes, "mb": round(bp_bytes / (1024 * 1024), 2), "files": bp_files}
+    total_bytes = sum(c["bytes"] for c in cats.values())
+    total_files = sum(c["files"] for c in cats.values())
+    return {
+        "total_bytes": total_bytes,
+        "total_mb": round(total_bytes / (1024 * 1024), 2),
+        "total_files": total_files,
+        "categories": cats,
+    }
+
+
+def _cleanup_workspace_storage(root: Path, targets: List[str]) -> Dict[str, Any]:
+    dir_map = {
+        "warehouse": root / "data_warehouse",
+        "inputs": root / "inputs",
+        "reports": root / "reports",
+        "output_pbi": root / "output_pbi",
+    }
+    freed_bytes = 0
+    deleted_files = 0
+    locked: List[str] = []
+
+    for key in targets:
+        if key in dir_map:
+            base = dir_map[key]
+            if not base.exists():
+                continue
+            for item in list(base.iterdir()):
+                if item.name == ".gitkeep":
+                    continue
+                if item.is_file():
+                    try:
+                        sz = item.stat().st_size
+                        item.unlink()
+                        freed_bytes += sz
+                        deleted_files += 1
+                    except OSError:
+                        locked.append(str(item.relative_to(root)))
+                elif item.is_dir():
+                    st = _dir_stats(item)
+                    try:
+                        shutil.rmtree(item)
+                        freed_bytes += st["bytes"]
+                        deleted_files += st["files"]
+                    except OSError:
+                        locked.append(str(item.relative_to(root)))
+        elif key == "blueprint":
+            for name in ("project_blueprint.json", "project_spec.yaml"):
+                p = root / "config" / name
+                if p.is_file():
+                    try:
+                        sz = p.stat().st_size
+                        p.unlink()
+                        freed_bytes += sz
+                        deleted_files += 1
+                    except OSError:
+                        locked.append(f"config/{name}")
+
+    return {
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+        "deleted_files": deleted_files,
+        "locked": locked,
+        "storage": _inspect_workspace_storage(root),
+    }
+
+
 def _read_requirement(root: Path, bp: Dict[str, Any]) -> str:
     req_file = bp.get("project", {}).get("requirement_doc") or ""
     if not req_file:
@@ -1908,7 +2097,24 @@ def create_app(workspace_dir: str) -> Flask:
             "requirement_md": req_md,
             "profiling": prof,
             "kpi_validation": kpi,
+            "storage": _inspect_workspace_storage(root),
         })
+
+    @app.route("/api/storage", methods=["GET"])
+    def api_storage():
+        return jsonify({"status": "ok", "storage": _inspect_workspace_storage(root)})
+
+    @app.route("/api/cleanup", methods=["POST"])
+    def api_cleanup():
+        try:
+            payload = request.get_json(force=True) or {}
+            targets = payload.get("targets") or []
+            if not isinstance(targets, list):
+                return jsonify({"status": "error", "error": "Danh sách mục xóa không hợp lệ"}), 400
+            res = _cleanup_workspace_storage(root, targets)
+            return jsonify({"status": "ok", **res})
+        except Exception as e:
+            return jsonify({"status": "error", "error": str(e)}), 500
 
     @app.route("/api/doc/<name>", methods=["GET"])
     def api_doc(name):

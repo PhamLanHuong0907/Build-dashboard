@@ -117,12 +117,12 @@ def build_desktop_app() -> Path:
     ensure_sample_sales_csv(ROOT / "sample_data" / "sample_sales.csv")
     generate_icon(ICON_PATH)
 
-    if APP_OUT_DIR.exists():
-        shutil.rmtree(APP_OUT_DIR)
-
     pyinstaller_dist = BUILD_TMP / "dist"
     pyinstaller_work = BUILD_TMP / "work"
     pyinstaller_spec = BUILD_TMP / "spec"
+    stage_app_dir = BUILD_TMP / "stage_app"
+    if stage_app_dir.exists():
+        shutil.rmtree(stage_app_dir)
 
     cmd = [
         sys.executable,
@@ -145,6 +145,21 @@ def build_desktop_app() -> Path:
         "--hidden-import", "flask",
         "--hidden-import", "yaml",
         "--hidden-import", "requests",
+        "--exclude-module", "scipy",
+        "--exclude-module", "numba",
+        "--exclude-module", "llvmlite",
+        "--exclude-module", "matplotlib",
+        "--exclude-module", "PIL",
+        "--exclude-module", "tkinter",
+        "--exclude-module", "pytest",
+        "--exclude-module", "IPython",
+        "--exclude-module", "jupyter",
+        "--exclude-module", "notebook",
+        "--exclude-module", "lxml",
+        "--exclude-module", "sqlalchemy",
+        "--exclude-module", "sklearn",
+        "--exclude-module", "torch",
+        "--exclude-module", "cv2",
         "--collect-submodules", "src",
         str(ROOT / "src" / "app_launcher.py"),
     ]
@@ -157,51 +172,53 @@ def build_desktop_app() -> Path:
     if not (built_dir / f"{APP_NAME}.exe").exists():
         raise FileNotFoundError(f"Expected EXE not found at {built_dir / f'{APP_NAME}.exe'}")
 
-    shutil.copytree(built_dir, APP_OUT_DIR)
+    shutil.copytree(built_dir, stage_app_dir)
 
     # Copy user-facing docs, template, marketplace index, sample CSV
     for rel in APP_EXTRA_FILES:
         src = ROOT / rel
-        dst = APP_OUT_DIR / rel
+        dst = stage_app_dir / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-    (APP_OUT_DIR / "README.md").write_text(APP_README, encoding="utf-8")
+    (stage_app_dir / "README.md").write_text(APP_README, encoding="utf-8")
 
     # Create clean empty working directories
     for d in EMPTY_WORK_DIRS:
-        dd = APP_OUT_DIR / d
+        dd = stage_app_dir / d
         dd.mkdir(parents=True, exist_ok=True)
         (dd / ".gitkeep").write_text("", encoding="utf-8")
 
-    # Audit top-level text files (exclude binary _internal/)
+    # Audit user-facing text files (exclude binary _internal/)
     issues = []
-    for p in APP_OUT_DIR.iterdir():
-        if p.name == "_internal":
-            continue
-        if p.is_file():
-            issues.extend(audit_staged_files(p.parent) if False else [])
     for sub in ("sample_data", "config"):
-        sub_p = APP_OUT_DIR / sub
+        sub_p = stage_app_dir / sub
         if sub_p.exists():
             issues.extend(audit_staged_files(sub_p))
     if issues:
         raise RuntimeError("Privacy audit failed:\n" + "\n".join(issues))
 
-    # Zip the standalone app
+    # Zip the standalone app directly from clean staging dir
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
     if APP_ZIP_PATH.exists():
         APP_ZIP_PATH.unlink()
-    print(f"[Build App] Zipping {APP_OUT_DIR} -> {APP_ZIP_PATH} ...")
+    print(f"[Build App] Zipping {stage_app_dir} -> {APP_ZIP_PATH} ...")
     with zipfile.ZipFile(APP_ZIP_PATH, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for p in sorted(APP_OUT_DIR.rglob("*")):
+        for p in sorted(stage_app_dir.rglob("*")):
             if p.is_file():
-                arcname = Path("AutoPBI_Studio_App") / p.relative_to(APP_OUT_DIR)
+                arcname = Path("AutoPBI_Studio_App") / p.relative_to(stage_app_dir)
                 zf.write(p, arcname.as_posix())
+
+    # Update dist/AutoPBI_Studio_App folder if not currently locked by a running instance
+    try:
+        if APP_OUT_DIR.exists():
+            shutil.rmtree(APP_OUT_DIR)
+        shutil.copytree(stage_app_dir, APP_OUT_DIR)
+    except OSError:
+        print(f"[Note] {APP_OUT_DIR} dang mo boi tien trinh khac -> da cap nhat file ZIP moi nhat tai {APP_ZIP_PATH}")
 
     size_mb = APP_ZIP_PATH.stat().st_size / (1024 * 1024)
     print(f"[OK] Standalone Windows App built!")
-    print(f"     Folder : {APP_OUT_DIR}")
-    print(f"     EXE    : {APP_OUT_DIR / f'{APP_NAME}.exe'}")
     print(f"     ZIP    : {APP_ZIP_PATH} ({size_mb:.1f} MB)")
     return APP_ZIP_PATH
 
