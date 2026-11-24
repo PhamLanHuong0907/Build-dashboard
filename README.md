@@ -25,6 +25,7 @@
 3. Trên Web UI:
    - Bấm **👁️ Xem mẫu** / **📋 Copy mẫu** `Requirement_Template.md` ngay tại khung nạp CSV để viết yêu cầu của bạn (hoặc thử ngay bộ dữ liệu mẫu `sample_data/sample_sales.csv` + `Requirement_Template.md`).
    - Bấm **"⚡ Chạy Tự Động A–Z"** → Kiểm tra đối soát KPI tại Tab **📊 Kiểm Toán Dữ Liệu & KPI** → Bấm **"🚀 Mở Trực Tiếp Trên Power BI Desktop"**.
+   - Sau khi hoàn thành Dashboard, bấm **"💾 Lưu Dashboard Độc Lập"** để lưu trọn bộ báo cáo sang `saved_dashboards/` (hoặc thư mục tùy chọn) rồi bấm **"🧹 Dọn dữ liệu tạm"** để giải phóng ổ cứng.
 
 ---
 

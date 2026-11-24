@@ -48,6 +48,7 @@ Ung dung tao Dashboard Power BI (`.pbip` & `.pbit`) tu dong tu **bat ky file `.c
    - Ung dung se tu dong mo cua so Desktop App.
    - Bam **Xem mau** / **Copy mau** `Requirement_Template.md` ngay tai khung nap CSV (hoac thu ngay file mau `sample_data/sample_sales.csv` + `Requirement_Template.md`).
    - Bam **"Chay Tu Dong Toan Trinh A-Z"** -> Kiem tra doi soat KPI -> Bam **"Mo Truc Tiep Tren Power BI Desktop"**.
+   - Sau khi xong Dashboard, bam **"Luu Dashboard Doc Lap"** de luu tron bo bao cao vao `saved_dashboards/` (hoac thu muc tuy chon) roi bam **"Don du lieu tam"** de giai phong o cung.
 
 ## Yeu Cau
 - Windows 10 / 11 (64-bit)
@@ -55,7 +56,7 @@ Ung dung tao Dashboard Power BI (`.pbip` & `.pbit`) tu dong tu **bat ky file `.c
 - Khong can cai Python hay thu vien bo sung.
 
 ## Bao Mat & Doc Lap
-- Moi file ban nap va ket qua sinh ra (`inputs/`, `data_warehouse/`, `output_pbi/`, `reports/`, `custom_visuals/`) chi luu cuc bo ngay trong thu muc ung dung tren may cua ban.
+- Moi file ban nap va ket qua sinh ra (`inputs/`, `data_warehouse/`, `output_pbi/`, `reports/`, `custom_visuals/`, `saved_dashboards/`) chi luu cuc bo ngay trong thu muc ung dung tren may cua ban.
 """
 
 
