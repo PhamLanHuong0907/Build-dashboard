@@ -333,10 +333,17 @@ class ReportBuilder:
         if not c_col or not v_fname:
             return []
 
+        sub_from: List[Dict[str, Any]] = [{"Name": "c", "Entity": c_tbl, "Type": 0}]
+        if v_tbl == c_tbl:
+            v_alias = "c"
+        else:
+            v_alias = "v"
+            sub_from.append({"Name": "v", "Entity": v_tbl, "Type": 0})
+
         order_expr = (
-            {"Measure": {"Expression": {"SourceRef": {"Entity": v_tbl}}, "Property": v_fname}}
+            {"Measure": {"Expression": {"SourceRef": {"Source": v_alias}}, "Property": v_fname}}
             if v_is_m
-            else {"Aggregation": {"Expression": {"Column": {"Expression": {"SourceRef": {"Entity": v_tbl}}, "Property": v_fname}}, "Function": 0}}
+            else {"Aggregation": {"Expression": {"Column": {"Expression": {"SourceRef": {"Source": v_alias}}, "Property": v_fname}}, "Function": 0}}
         )
         pbi_dir = 2 if direction.lower() == "top" else 1
         return [
@@ -348,7 +355,7 @@ class ReportBuilder:
                     "From": [
                         {"Name": "sub", "Expression": {"Subquery": {"Query": {
                             "Version": 2,
-                            "From": [{"Name": "c", "Entity": c_tbl, "Type": 0}, {"Name": "v", "Entity": v_tbl, "Type": 0}],
+                            "From": sub_from,
                             "Select": [{"Column": {"Expression": {"SourceRef": {"Source": "c"}}, "Property": c_col}, "Name": "field"}],
                             "OrderBy": [{"Direction": pbi_dir, "Expression": order_expr}],
                             "Top": int(top_n),
