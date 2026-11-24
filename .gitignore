@@ -16,6 +16,7 @@ custom_visuals/
 data_warehouse/
 output_pbi/
 reports/
+saved_dashboards/
 
 # Personal datasets & active project specs
 merged_flights.csv

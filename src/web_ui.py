@@ -25,6 +25,7 @@ from flask import Flask, jsonify, render_template_string, request
 
 from src.parser.spec_parser import SpecParser
 from src.pbi_generator.pbip_packager import generate_pbi_artifacts
+from src.pbi_generator.exporter import export_standalone_dashboard, inspect_dashboard_export_status
 from src.pbi_generator.visual_catalog import get_full_visual_catalog, inspect_pbiviz_package
 from src.pbi_generator import marketplace
 from src.pbi_connector.dax_validator import run_kpi_validation
@@ -410,7 +411,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <button class="btn-accent btn-sm" onclick="copyDocByName('Requirement_Template.md')">📋 Copy nội dung mẫu</button>
         <button class="btn-secondary btn-sm" onclick="downloadDocByName('Requirement_Template.md')">⬇️ Tải mẫu về máy</button>
         <button class="btn-secondary btn-sm" onclick="openDocModal('HUONG_DAN_REQUIREMENT.md','Hướng dẫn viết Requirement.md')">📖 Hướng dẫn viết Requirement</button>
-        <button class="btn-danger btn-sm" id="btn-open-cleanup" style="margin-left:auto;" onclick="openCleanupModal()">🧹 Dọn dữ liệu tạm (0 MB)</button>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn-success btn-sm" onclick="openCleanupModal()">💾 Lưu Dashboard Độc Lập</button>
+          <button class="btn-danger btn-sm" id="btn-open-cleanup" onclick="openCleanupModal()">🧹 Dọn dữ liệu tạm (0 MB)</button>
+        </div>
       </div>
       <div id="pipe-status-bar" style="margin-top:8px;font-size:12px;color:#10b981;display:none;"></div>
     </div>
@@ -793,23 +797,54 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- STORAGE CLEANUP MODAL -->
+  <!-- SAVE STANDALONE DASHBOARD & STORAGE CLEANUP MODAL -->
   <div class="modal-backdrop" id="cleanup-backdrop" onclick="if(event.target===this) closeCleanupModal()">
-    <div class="inspector-modal" style="max-width:740px;">
+    <div class="inspector-modal" style="max-width:860px;">
       <div class="inspector-head">
-        <h2 style="font-size:15px;color:#fca5a5;">🧹 Dọn Dẹp Dữ Liệu Tạm &amp; Giải Phóng Ổ Cứng</h2>
+        <h2 style="font-size:15px;color:#93c5fd;">💾 Lưu Dashboard Power BI Độc Lập &amp; 🧹 Dọn Dữ Liệu Tạm</h2>
         <button class="btn-secondary" onclick="closeCleanupModal()">Đóng</button>
       </div>
       <div class="inspector-body">
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#cbd5e1;line-height:1.5;">
-          💡 <strong>Mẹo tiết kiệm ổ cứng:</strong> Sau khi mở Power BI Desktop và lưu báo cáo thành file riêng (<strong>File → Save As → .pbix</strong>), toàn bộ dữ liệu đã được gói gọn trong file <code>.pbix</code> đó. Bạn có thể xóa các thư mục trung gian bên dưới để máy nhẹ hoàn toàn (không ảnh hưởng file mẫu <code>sample_data/</code>, <code>Requirement_Template.md</code> hay mã nguồn).
+        <!-- STEP 1: SAVE STANDALONE DASHBOARD -->
+        <div style="background:#0f172a;border:1px solid #10b981;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <strong style="color:#34d399;font-size:13px;">Bước 1: 💾 Lưu Bản Dashboard Hiện Tại Thành Thư Mục Độc Lập (Thay thế Save As .pbix)</strong>
+            <span id="export-cache-badge" style="font-size:11px;color:#cbd5e1;"></span>
+          </div>
+          <p style="font-size:11.5px;color:#94a3b8;margin-bottom:10px;line-height:1.45;">
+            Power BI Desktop hiện không hỗ trợ đổi ngược dự án <code>.pbip</code> (định dạng mới) sang <code>.pbix</code> bằng Save As. Hãy dùng nút bên dưới để lưu trọn bộ Dashboard (kèm dữ liệu <code>cache.abf</code> / Parquet gọn nhẹ) sang thư mục riêng an toàn — sau đó mở lại bất cứ lúc nào kể cả khi đã xóa toàn bộ <code>data_warehouse/</code>.
+          </p>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+            <div>
+              <label>Thư mục lưu Dashboard (để trống sẽ tự lưu vào <code>saved_dashboards/</code>)</label>
+              <input type="text" id="export-dest-dir" placeholder="VD: D:\My_PowerBI_Dashboards\BaoCao_Q1 (hoặc để trống)" style="margin-bottom:0;" />
+            </div>
+            <button class="btn-success" style="padding:8px 16px;" onclick="exportStandaloneDashboard()">💾 Lưu Dashboard Ngay</button>
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;color:#cbd5e1;">
+            <label style="display:inline-flex;align-items:center;margin:0;cursor:pointer;font-weight:400;">
+              <input type="checkbox" id="export-inc-parquet" checked /> Kèm file Parquet gọn nhẹ (để có thể bấm Refresh lại sau này, nhẹ hơn CSV 5–10 lần)
+            </label>
+            <label style="display:inline-flex;align-items:center;margin:0;cursor:pointer;font-weight:400;">
+              <input type="checkbox" id="export-make-zip" /> Đóng gói thêm 1 file .zip để gửi cho người khác
+            </label>
+          </div>
+          <div id="export-result-msg" style="margin-top:8px;font-size:12px;color:#34d399;display:none;"></div>
+          <div id="saved-dashboards-box" style="margin-top:10px;"></div>
         </div>
-        <div id="cleanup-summary" style="font-size:13px;font-weight:700;color:#93c5fd;margin-bottom:10px;"></div>
-        <div id="cleanup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:10px;border-top:1px solid #334155;">
-          <button class="btn-secondary" onclick="refreshCleanupModal()">🔄 Quét lại dung lượng</button>
-          <button class="btn-accent" onclick="runCleanup(false)">🧹 Xóa Các Mục Đã Chọn</button>
-          <button class="btn-danger" onclick="runCleanup(true)">🗑️ Dọn Toàn Bộ &amp; Reset Dự Án Mới</button>
+
+        <!-- STEP 2: CLEANUP TEMPORARY DATA -->
+        <div style="background:#0f172a;border:1px solid #ef4444;border-radius:8px;padding:12px 14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <strong style="color:#fca5a5;font-size:13px;">Bước 2: 🧹 Dọn Dẹp Dữ Liệu Tạm Cho Nhẹ Máy (Không xóa <code>saved_dashboards/</code>)</strong>
+            <span id="cleanup-summary" style="font-size:12px;font-weight:700;color:#93c5fd;"></span>
+          </div>
+          <div id="cleanup-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:10px;border-top:1px solid #334155;">
+            <button class="btn-secondary" onclick="refreshCleanupModal()">🔄 Quét lại dung lượng</button>
+            <button class="btn-accent" onclick="runCleanup(false)">🧹 Xóa Các Mục Đã Chọn</button>
+            <button class="btn-danger" onclick="runCleanup(true)">🗑️ Dọn Toàn Bộ Dữ Liệu Tạm &amp; Reset</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1704,10 +1739,88 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         </label>`;
       }).join('');
     }
+    function renderExportStatus(ex) {
+      if (!ex) return;
+      const badge = document.getElementById('export-cache-badge');
+      if (badge) {
+        if (!ex.has_pbip) badge.innerHTML = '<span style="color:#fbbf24;">⚠️ Chưa có dự án .pbip hiện tại</span>';
+        else if (ex.has_cache_abf) badge.innerHTML = `<span style="color:#34d399;">✅ Đã có dữ liệu cache.abf (${ex.cache_mb} MB) · Parquet: ${ex.parquet_mb} MB</span>`;
+        else badge.innerHTML = `<span style="color:#93c5fd;">ℹ️ Chưa có cache.abf (sẽ kèm Parquet gọn ${ex.parquet_mb} MB)</span>`;
+      }
+      const box = document.getElementById('saved-dashboards-box');
+      if (!box) return;
+      const list = ex.saved_dashboards || [];
+      if (!list.length) {
+        box.innerHTML = '<div style="font-size:11px;color:#64748b;">Chưa có bản dashboard nào trong <code>saved_dashboards/</code>.</div>';
+        return;
+      }
+      box.innerHTML = '<div style="font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:5px;">📂 Các Dashboard đã lưu độc lập (<code>saved_dashboards/</code>):</div>' +
+        list.map(it => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border:1px solid #1e293b;border-radius:5px;margin-bottom:4px;font-size:11.5px;background:#020617;">
+          <div>
+            <strong style="color:#e2e8f0;">${esc(it.folder_name)}</strong>
+            <span style="color:#94a3b8;"> · ${it.mb} MB · ${esc(it.modified)}${it.has_cache ? ' · ✅ cache.abf' : ''}${it.has_parquet ? ' · 📦 Parquet' : ''}</span>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="btn-sm" onclick="openSavedDashboard('${esc(it.pbip_path.replace(/\\/g, '\\\\'))}')">🚀 Mở PBI</button>
+            <button class="btn-danger btn-sm" onclick="deleteSavedDashboard('${esc(it.folder_name)}')">Xóa</button>
+          </div>
+        </div>`).join('');
+    }
+    async function exportStandaloneDashboard() {
+      const destDir = document.getElementById('export-dest-dir').value.trim();
+      const incPq = document.getElementById('export-inc-parquet').checked;
+      const makeZip = document.getElementById('export-make-zip').checked;
+      const msgEl = document.getElementById('export-result-msg');
+      msgEl.style.display = 'block';
+      msgEl.style.color = '#fbbf24';
+      msgEl.innerText = '⏳ Đang lưu bản Dashboard độc lập...';
+      const res = await fetch('/api/export-dashboard', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dest_dir: destDir, include_parquet: incPq, make_zip: makeZip})
+      });
+      const out = await res.json();
+      if (out.status === 'ok') {
+        msgEl.style.color = '#34d399';
+        msgEl.innerHTML = `✅ Đã lưu thành công (${out.total_mb} MB) tại: <code>${esc(out.export_dir)}</code>` +
+          (out.zip_path ? `<br/>📦 File ZIP: <code>${esc(out.zip_path)}</code>` : '') +
+          `<br/>👉 Giờ bạn có thể yên tâm bấm <strong>Dọn Toàn Bộ Dữ Liệu Tạm</strong> ở Bước 2 bên dưới!`;
+        showToast(`✅ Đã lưu Dashboard độc lập (${out.total_mb} MB)!`);
+        renderExportStatus(out.status_info);
+      } else {
+        msgEl.style.color = '#fca5a5';
+        msgEl.innerText = '❌ Lỗi lưu Dashboard: ' + out.error;
+        showToast('❌ ' + out.error, true);
+      }
+    }
+    async function openSavedDashboard(pbipPath) {
+      showToast('⏳ Đang mở bản Dashboard đã lưu trên Power BI Desktop...');
+      const res = await fetch('/api/open-saved-dashboard', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pbip_path: pbipPath})
+      });
+      const out = await res.json();
+      showToast(out.status === 'ok' ? '🚀 Đã mở Dashboard đã lưu trên Power BI Desktop!' : ('⚠️ ' + out.message), out.status !== 'ok');
+    }
+    async function deleteSavedDashboard(folderName) {
+      if (!confirm(`Xóa bản Dashboard đã lưu '${folderName}'?`)) return;
+      const res = await fetch('/api/delete-saved-dashboard', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder_name: folderName})
+      });
+      const out = await res.json();
+      if (out.status === 'ok') { showToast(`🗑️ Đã xóa bản lưu ${folderName}`); await refreshCleanupModal(); }
+      else showToast('❌ ' + out.error, true);
+    }
     async function refreshCleanupModal() {
       const res = await fetch('/api/storage');
       const out = await res.json();
-      if (out.status === 'ok') renderCleanupList(out.storage);
+      if (out.status === 'ok') {
+        renderCleanupList(out.storage);
+        renderExportStatus(out.export_status);
+      }
     }
     async function openCleanupModal() {
       document.getElementById('cleanup-backdrop').classList.add('open');
@@ -2102,7 +2215,53 @@ def create_app(workspace_dir: str) -> Flask:
 
     @app.route("/api/storage", methods=["GET"])
     def api_storage():
-        return jsonify({"status": "ok", "storage": _inspect_workspace_storage(root)})
+        bp = parser.load_blueprint_or_empty()
+        return jsonify({
+            "status": "ok",
+            "storage": _inspect_workspace_storage(root),
+            "export_status": inspect_dashboard_export_status(root, bp),
+        })
+
+    @app.route("/api/export-dashboard", methods=["POST"])
+    def api_export_dashboard():
+        try:
+            payload = request.get_json(force=True) or {}
+            bp = parser.load_blueprint_or_empty()
+            res = export_standalone_dashboard(
+                root,
+                bp,
+                dest_dir=payload.get("dest_dir") or None,
+                include_parquet=payload.get("include_parquet"),
+                make_zip=bool(payload.get("make_zip")),
+            )
+            return jsonify({"status": "ok", **res})
+        except Exception as e:
+            return jsonify({"status": "error", "error": str(e)}), 500
+
+    @app.route("/api/open-saved-dashboard", methods=["POST"])
+    def api_open_saved_dashboard():
+        payload = request.get_json(force=True) or {}
+        pbip_path = Path(payload.get("pbip_path", ""))
+        if not pbip_path.is_file():
+            return jsonify({"status": "warn", "message": f"Không tìm thấy file {pbip_path}"})
+        ok = launch_powerbi_desktop(str(pbip_path), restart_if_open=False)
+        return jsonify({"status": "ok" if ok else "warn", "message": "Đã mở Power BI Desktop" if ok else "Không thể khởi chạy Power BI Desktop"})
+
+    @app.route("/api/delete-saved-dashboard", methods=["POST"])
+    def api_delete_saved_dashboard():
+        try:
+            payload = request.get_json(force=True) or {}
+            name = Path(payload.get("folder_name", "")).name
+            target = root / "saved_dashboards" / name
+            if not name or not target.exists():
+                return jsonify({"status": "error", "error": "Không tìm thấy bản lưu"}), 404
+            shutil.rmtree(target)
+            zp = target.with_suffix(".zip")
+            if zp.is_file():
+                zp.unlink()
+            return jsonify({"status": "ok"})
+        except Exception as e:
+            return jsonify({"status": "error", "error": str(e)}), 500
 
     @app.route("/api/cleanup", methods=["POST"])
     def api_cleanup():

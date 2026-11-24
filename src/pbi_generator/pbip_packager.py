@@ -10,6 +10,7 @@ Generates:
 """
 import io
 import json
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Any, Dict
@@ -69,6 +70,10 @@ def generate_pbi_artifacts(workspace_dir: str, blueprint: Dict[str, Any]) -> Dic
     sm_dir.mkdir(parents=True, exist_ok=True)
     rep_dir.mkdir(parents=True, exist_ok=True)
     theme_dir.mkdir(parents=True, exist_ok=True)
+    # Remove any stale PBIR definition/ folder left by Power BI Desktop so fresh report.json is always picked up
+    stale_def = rep_dir / "definition"
+    if stale_def.exists():
+        shutil.rmtree(stale_def, ignore_errors=True)
 
     pbip_manifest = {
         "version": "1.0",
