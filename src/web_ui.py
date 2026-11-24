@@ -621,6 +621,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
           <div id="audit-dq-table" style="max-height:520px;overflow:auto;"></div>
         </div>
       </div>
+      <div class="panel">
+        <div class="panel-header">
+          <h2>🧼 Nhật Ký ETL Làm Sạch Dữ Liệu Theo Tiêu Chuẩn Trong Requirement.md</h2>
+          <span id="audit-etl-summary" style="font-size:12px;color:#34d399;font-weight:600;"></span>
+        </div>
+        <div id="audit-etl-table" style="max-height:360px;overflow:auto;"></div>
+      </div>
     </div>
   </div>
 
@@ -989,7 +996,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       renderDashboardPills();
       renderCurrentDashboard();
       renderDaxTable();
-      renderAuditTab(data.profiling, data.kpi_validation);
+      renderAuditTab(data.profiling, data.kpi_validation, data.etl_log);
       renderStorageBadge(data.storage);
     }
 
@@ -1669,7 +1676,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-    function renderAuditTab(prof, kpi) {
+    function renderAuditTab(prof, kpi, etlLog) {
       const ms = (kpi && kpi.measures) || [];
       const meta = (kpi && kpi.measures_meta) || null;
       const topBox = document.getElementById('audit-top-stats');
@@ -1696,6 +1703,18 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         ? '<table><thead><tr><th>Mã</th><th>Tiêu chí kiểm tra</th><th>Số dòng</th><th>Tỷ lệ (%)</th><th>Trạng thái</th></tr></thead><tbody>' +
           dq.map(c => `<tr><td>${esc(c.CheckID)}</td><td>${esc(c.CheckName)}</td><td>${Number(c.RecordCount).toLocaleString()}</td><td>${c.Percentage}%</td><td><strong>${esc(c.Status)}</strong></td></tr>`).join('') + '</tbody></table>'
         : '<p style="color:#94a3b8;padding:8px;">Chưa có kết quả kiểm toán dữ liệu.</p>';
+
+      const cr = (etlLog && etlLog.cleaning_report) || null;
+      const sumEl = document.getElementById('audit-etl-summary');
+      const tblEl = document.getElementById('audit-etl-table');
+      if (cr && cr.steps && cr.steps.length) {
+        sumEl.innerText = `Gốc: ${Number(cr.source_rows).toLocaleString()} dòng → Sạch: ${Number(cr.clean_rows).toLocaleString()} dòng (Loại ${Number(cr.total_rows_dropped).toLocaleString()} dòng, chuẩn hóa ${Number(cr.total_cells_fixed).toLocaleString()} ô)`;
+        tblEl.innerHTML = '<table><thead><tr><th>#</th><th>Cột / Phạm vi</th><th>Hành động</th><th>Điều kiện</th><th>Dòng loại</th><th>Ô sửa</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead><tbody>' +
+          cr.steps.map(s => `<tr><td>${s.step}</td><td><strong>${esc(s.column)}</strong></td><td><code>${esc(s.action)}</code></td><td><code>${esc(s.condition)}</code></td><td>${Number(s.rows_dropped||0).toLocaleString()}</td><td>${Number(s.cells_fixed||0).toLocaleString()}</td><td><strong>${esc(s.status)}</strong></td><td>${esc(s.detail)}</td></tr>`).join('') + '</tbody></table>';
+      } else {
+        sumEl.innerText = '';
+        tblEl.innerHTML = '<p style="color:#94a3b8;padding:8px;">Chưa có nhật ký ETL làm sạch. Hãy chạy "⚡ Chạy Tự Động A–Z".</p>';
+      }
     }
 
     async function revalidateKpi() {
@@ -2201,8 +2220,10 @@ def create_app(workspace_dir: str) -> Flask:
         req_md = _read_requirement(root, bp)
         prof_path = root / "reports" / "profiling_summary.json"
         kpi_path = root / "reports" / "kpi_validation_results.json"
+        etl_path = root / "reports" / "etl_warehouse_log.json"
         prof = json.loads(prof_path.read_text(encoding="utf-8")) if prof_path.exists() else {}
         kpi = json.loads(kpi_path.read_text(encoding="utf-8")) if kpi_path.exists() else {}
+        etl_log = json.loads(etl_path.read_text(encoding="utf-8")) if etl_path.exists() else {}
         return jsonify({
             "blueprint": bp,
             "visual_catalog": get_full_visual_catalog(str(root)),
@@ -2210,6 +2231,7 @@ def create_app(workspace_dir: str) -> Flask:
             "requirement_md": req_md,
             "profiling": prof,
             "kpi_validation": kpi,
+            "etl_log": etl_log,
             "storage": _inspect_workspace_storage(root),
         })
 

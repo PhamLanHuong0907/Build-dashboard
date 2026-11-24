@@ -19,6 +19,7 @@ from src.parser.spec_parser import SpecParser
 from src.parser.universal_compiler import compile_blueprint_from_csv_and_markdown
 from src.etl.profiler import run_profiling
 from src.etl.warehouse_builder import build_data_warehouse
+from src.etl.cleaning_engine import cleaning_rules_hash
 from src.pbi_connector.dax_validator import run_kpi_validation
 from src.pbi_connector.live_refresh import refresh_running_powerbi
 from src.pbi_generator.pbip_packager import generate_pbi_artifacts
@@ -82,6 +83,7 @@ def _etl_cache_valid(root: Path, blueprint: Dict[str, Any], csv_full: Path) -> b
     return (
         data.get("csv") == _csv_fingerprint(csv_full)
         and data.get("dataset_mode") == proj.get("dataset_mode")
+        and data.get("cleaning_hash") == cleaning_rules_hash(blueprint.get("cleaning_rules") or [])
         and (wh / f"{proj.get('fact_table_name', 'Fact_Main')}.parquet").exists()
         and (wh / "Data_Quality_Stats.parquet").exists()
         and (root / "reports" / "profiling_summary.json").exists()
@@ -92,7 +94,14 @@ def _write_etl_cache(root: Path, blueprint: Dict[str, Any], csv_full: Path) -> N
     manifest = root / "reports" / "etl_cache.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
-        json.dumps({"csv": _csv_fingerprint(csv_full), "dataset_mode": blueprint["project"].get("dataset_mode")}, indent=2),
+        json.dumps(
+            {
+                "csv": _csv_fingerprint(csv_full),
+                "dataset_mode": blueprint["project"].get("dataset_mode"),
+                "cleaning_hash": cleaning_rules_hash(blueprint.get("cleaning_rules") or []),
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
 

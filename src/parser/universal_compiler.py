@@ -14,6 +14,7 @@ import pandas as pd
 
 
 from src.pbi_generator.visual_catalog import match_visual_type_from_text
+from src.etl.cleaning_engine import parse_cleaning_rules
 
 
 def map_chart_type(raw_type: str) -> str:
@@ -974,6 +975,7 @@ def compile_blueprint_from_csv_and_markdown(
             "csv_info": csv_info,
             "dimensions": dimensions_cfg,
         },
+        "cleaning_rules": parse_cleaning_rules(md_text, csv_info["columns"]),
         "dax_measures": dax_measures,
         "dashboards": dashboards,
     }

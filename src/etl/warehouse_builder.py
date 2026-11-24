@@ -19,6 +19,8 @@ import pyarrow as pa
 import pyarrow.csv as pv
 import pyarrow.parquet as pq
 
+from src.etl.cleaning_engine import apply_cleaning_rules
+
 
 AIRLINE_NAMES = {
     "AA": "American Airlines",
@@ -337,13 +339,19 @@ def _build_universal_star_schema(
     reports_dir: Path,
     t0: float,
 ) -> Dict[str, Any]:
-    """Universal Star Schema builder for ANY CSV file."""
+    """Universal Star Schema builder for ANY CSV file with Requirement-driven ETL cleaning."""
     n_source = len(df)
-    dup_mask = df.duplicated(keep="first")
-    n_dups = int(dup_mask.sum())
-    if n_dups > 0:
-        df = df.loc[~dup_mask].reset_index(drop=True)
+    rules = blueprint.get("cleaning_rules") or []
+    if not rules:
+        rules = [{"column": "ALL", "action": "drop_duplicates", "condition": "ALL", "description": "Loại bản ghi trùng hoàn toàn"}]
+
+    df, cleaning_report = apply_cleaning_rules(df, rules)
     n_clean = len(df)
+    n_dups = sum(s.get("rows_dropped", 0) for s in cleaning_report.get("steps", []) if s.get("action") == "drop_duplicates")
+    print(
+        f"[Phase 3 ETL Clean] Applied {cleaning_report['rules_count']} rules from Requirement.md: "
+        f"{n_source:,} -> {n_clean:,} rows (dropped {cleaning_report['total_rows_dropped']:,}, fixed {cleaning_report['total_cells_fixed']:,} cells)"
+    )
 
     df["RecordKey"] = np.arange(1, n_clean + 1, dtype=np.int64)
     date_col = blueprint.get("project", {}).get("primary_date_col")
@@ -373,7 +381,10 @@ def _build_universal_star_schema(
 
     fact_table_name = blueprint.get("project", {}).get("fact_table_name", "Fact_Main")
     tables_to_export[fact_table_name] = df
-    return _export_warehouse_tables(tables_to_export, warehouse_dir, csv_out_dir, reports_dir, n_source, n_dups, n_clean, t0)
+    return _export_warehouse_tables(
+        tables_to_export, warehouse_dir, csv_out_dir, reports_dir, n_source, n_dups, n_clean, t0,
+        cleaning_report=cleaning_report,
+    )
 
 
 def _export_warehouse_tables(
@@ -385,6 +396,7 @@ def _export_warehouse_tables(
     n_dups: int,
     n_clean: int,
     t0: float,
+    cleaning_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     export_stats = {}
     for tname, tdf in tables_to_export.items():
@@ -407,6 +419,14 @@ def _export_warehouse_tables(
         "source_rows": n_source,
         "dropped_duplicate_rows": n_dups,
         "clean_fact_rows": n_clean,
+        "cleaning_report": cleaning_report or {
+            "source_rows": n_source,
+            "clean_rows": n_clean,
+            "total_rows_dropped": n_source - n_clean,
+            "total_cells_fixed": 0,
+            "rules_count": 1,
+            "steps": [{"step": 1, "column": "ALL", "action": "drop_duplicates", "condition": "ALL", "rows_dropped": n_dups, "cells_fixed": 0, "status": "APPLIED", "detail": f"Loại {n_dups:,} dòng trùng lặp"}],
+        },
         "tables": export_stats,
         "elapsed_seconds": round(time.time() - t0, 2),
     }

@@ -58,15 +58,23 @@ Lưu ý quan trọng:
 
 ---
 
-# II. QUY TẮC LÀM SẠCH DỮ LIỆU
+# II. QUY TẮC LÀM SẠCH DỮ LIỆU (ETL TỰ ĐỘNG THỰC THI)
 
-| Quy tắc | Cách phần mềm xử lý |
-|---|---|
-| Bản ghi trùng hoàn toàn | Loại bỏ, ghi số lượng vào trang Data Quality |
-| Giá trị thiếu (`NULL`) | Giữ nguyên, không thay bằng `0` |
-| Cột ngày | Tự nhận diện, chuẩn hóa và sinh bảng lịch `Dim_Date` (Năm, Quý, Tháng, Thứ, Cuối tuần) |
-| Cột chiều (Dimension) | Tách thành bảng `Dim_<Tên cột>`, tạo khóa ngoại và phân nhóm Pareto A (80%), B (15%), C (5%) |
-| Cột cờ (Flag) | Dùng cho các measure `<cột> Count` và `<cột> Rate` |
+> Phần mềm **đọc trực tiếp bảng dưới đây và tự động làm sạch dữ liệu** trước khi tạo Star Schema và Dashboard. Kết quả từng bước (số dòng loại bỏ, số ô chuẩn hóa) được ghi vào Tab **Kiểm Toán Dữ Liệu & KPI**.
+>
+> Các hành động hỗ trợ: `drop_duplicates`, `drop_invalid_date`, `clean_numeric`, `filter` (`>= 0`, `> 0`, `between 0 and 1000`, `not_null`), `drop_null`, `fillna` (`0`, `mean`, `median`, `mode`, `Unknown`), `trim`, `trim_upper`, `trim_lower`, `trim_title`, `drop_outliers` (`iqr` / `p01_p99`), `clip_outliers` (`iqr` / `p01_p99`), `flag_01`.
+
+| Quy tắc / Cột | Hành động | Điều kiện / Giá trị |
+|---|---|---|
+| `Duplicates` | `drop_duplicates` | `ALL` |
+| `OrderDate` | `drop_invalid_date` | Loại dòng ngày lỗi hoặc trống |
+| `Revenue` | `clean_numeric` | Xóa ký tự `$`, `,`, `%` và ép kiểu số |
+| `Revenue` | `filter` | `>= 0` |
+| `Cost` | `filter` | `>= 0` |
+| `Quantity` | `filter` | `> 0` |
+| `Region` | `trim` | Chuẩn hóa khoảng trắng đầu/cuối |
+| `Region` | `fillna` | `Unknown` |
+| `IsReturned` | `flag_01` | Chuẩn hóa về `{0, 1}` |
 
 ---
 
