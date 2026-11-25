@@ -118,6 +118,15 @@ def _parse_markdown_tables(md_text: str) -> List[List[Dict[str, str]]]:
     return tables
 
 
+def _normalize_dax_fact_refs(expr: str, fact_table: str) -> str:
+    """Normalize generic fact table aliases (Fact_Main / Fact_Flight_Operations / Fact_Flight) and aviation flag columns."""
+    out = re.sub(r"\b(Fact_Flight_Operations|Fact_Main|Fact_Flight)\b", fact_table, expr)
+    if fact_table == "Fact_Flight":
+        out = re.sub(r"('?Fact_Flight'?)\[Cancelled\]", r"\1[IsCancelled]", out)
+        out = re.sub(r"('?Fact_Flight'?)\[Diverted\]", r"\1[IsDiverted]", out)
+    return out
+
+
 def _extract_dax_code_blocks(md_text: str, fact_table: str) -> List[Dict[str, str]]:
     """Extract DAX measures from ```DAX ... ``` code blocks in Requirement.md."""
     pattern = re.compile(r"```(?:dax|DAX)\s*\n(.*?)```", re.DOTALL)
@@ -128,7 +137,7 @@ def _extract_dax_code_blocks(md_text: str, fact_table: str) -> List[Dict[str, st
             parts = block.split("=", 1)
             m_name = parts[0].strip()
             m_expr = " ".join(parts[1].strip().split())
-            m_expr = m_expr.replace("Fact_Flight_Operations", fact_table).replace("Fact_Flight", fact_table)
+            m_expr = _normalize_dax_fact_refs(m_expr, fact_table)
             low = m_name.lower()
             fmt = "0.00%" if any(w in low for w in ["%", "rate", "otp", "share", "pct", "percent", "tỷ lệ", "margin"]) else (
                 "0.0" if any(w in low for w in ["avg", "average", "variance", "median", "p90", "p95", "(p)", "(mph)"]) else "#,##0"
@@ -173,12 +182,14 @@ _AGG_SHORT = {"SUM": "SUM", "AVG": "AVERAGE", "AVERAGE": "AVERAGE", "MIN": "MIN"
 
 
 def _shorthand_to_dax(raw: str, fact_table: str, col_lookup: Dict[str, str]) -> Optional[str]:
-    f = raw.strip().strip("`").strip().replace("Fact_Flight_Operations", fact_table)
+    f = _normalize_dax_fact_refs(raw.strip().strip("`").strip(), fact_table)
     if re.fullmatch(r"COUNTROWS\(\s*[^)]*\)", f, re.I):
         return f"COUNTROWS('{fact_table}')"
     m = re.fullmatch(r"(SUM|AVG|AVERAGE|MIN|MAX|MEDIAN|DISTINCTCOUNT)\(\s*'?([A-Za-z0-9_]+)'?\s*\)", f, re.I)
     if m:
         col = col_lookup.get(m.group(2).lower(), m.group(2))
+        if fact_table == "Fact_Flight" and col in ("Cancelled", "Diverted"):
+            col = f"Is{col}"
         return f"{_AGG_SHORT[m.group(1).upper()]}('{fact_table}'[{col}])"
     if re.search(r"'[^']+'\[|\[[^\]]+\]", f) and re.match(r"(DIVIDE|CALCULATE|SUM|AVERAGE|COUNTROWS|IF|MAX|MIN|MEDIAN|PERCENTILE)", f, re.I):
         return f
