@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 import pyarrow.parquet as pq
 
+from src.etl.cleaning_engine import extract_date_format_map
+
 
 def _col(
     name: str,
@@ -65,6 +67,8 @@ def _build_universal_model_bim(wh_dir: Path, blueprint: Dict[str, Any]) -> Dict[
     fact_name = blueprint["project"].get("fact_table_name", "Fact_Main")
     dims_cfg = blueprint.get("universal_schema", {}).get("dimensions", [])
     date_col = blueprint["project"].get("primary_date_col")
+    date_fmt_map = extract_date_format_map(blueprint.get("cleaning_rules") or [])
+    default_date_fmt = date_fmt_map.get("_primary", "yyyy-MM-dd")
 
     table_names = [fact_name, "Data_Quality_Stats"]
     if date_col and (wh_dir / "Dim_Date.parquet").exists():
@@ -96,7 +100,8 @@ def _build_universal_model_bim(wh_dir: Path, blueprint: Dict[str, Any]) -> Dict[
 
             is_hidden = cname.endswith("Sort") or (cname.endswith("Key") and cname != "RecordKey")
             summ = "sum" if (btype in ("int64", "double") and not is_hidden and not cname.endswith(("No", "Year", "Quarter"))) else "none"
-            fmt = "yyyy-mm-dd" if btype == "dateTime" else ("#,##0" if btype == "int64" else ("0.00" if btype == "double" else ""))
+            col_date_fmt = date_fmt_map.get(cname, default_date_fmt)
+            fmt = col_date_fmt if btype == "dateTime" else ("#,##0" if btype == "int64" else ("0.00" if btype == "double" else ""))
             cols.append(_col(cname, btype, summarize_by=summ, format_string=fmt, sort_by_column=sort_col, is_hidden=is_hidden))
 
         t_obj: Dict[str, Any] = {

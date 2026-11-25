@@ -19,7 +19,7 @@ import pyarrow as pa
 import pyarrow.csv as pv
 import pyarrow.parquet as pq
 
-from src.etl.cleaning_engine import apply_cleaning_rules
+from src.etl.cleaning_engine import apply_cleaning_rules, extract_date_format_map
 
 
 AIRLINE_NAMES = {
@@ -104,7 +104,7 @@ def compute_pareto_abc(df_counts: pd.DataFrame, count_col: str, group_col_name: 
     return df_sorted
 
 
-def build_dim_date_from_series(fdate: pd.Series) -> pd.DataFrame:
+def build_dim_date_from_series(fdate: pd.Series, date_str_fmt: str = "%Y-%m-%d") -> pd.DataFrame:
     valid_dates = fdate.dropna()
     if len(valid_dates) == 0:
         unique_dates = pd.date_range("2025-01-01", "2025-12-31", freq="D")
@@ -112,7 +112,7 @@ def build_dim_date_from_series(fdate: pd.Series) -> pd.DataFrame:
         unique_dates = pd.date_range(valid_dates.min(), valid_dates.max(), freq="D")
     dim_date = pd.DataFrame({"Date": unique_dates})
     dim_date["DateKey"] = (dim_date["Date"].dt.year * 10000 + dim_date["Date"].dt.month * 100 + dim_date["Date"].dt.day).astype(np.int32)
-    dim_date["DateStr"] = dim_date["Date"].dt.strftime("%Y-%m-%d")
+    dim_date["DateStr"] = dim_date["Date"].dt.strftime(date_str_fmt)
     dim_date["Year"] = dim_date["Date"].dt.year.astype(np.int32)
     dim_date["Quarter"] = dim_date["Date"].dt.quarter.astype(np.int32)
     dim_date["QuarterLabel"] = "Q" + dim_date["Quarter"].astype(str) + " " + dim_date["Year"].astype(str)
@@ -357,10 +357,12 @@ def _build_universal_star_schema(
     date_col = blueprint.get("project", {}).get("primary_date_col")
     tables_to_export: Dict[str, pd.DataFrame] = {}
 
+    date_fmts = extract_date_format_map(rules)
+    date_str_fmt = date_fmts.get("_primary_strftime", "%Y-%m-%d")
     if date_col and date_col in df.columns:
         fdate = pd.to_datetime(df[date_col], errors="coerce")
         df["DateKey"] = (fdate.dt.year.fillna(2025) * 10000 + fdate.dt.month.fillna(1) * 100 + fdate.dt.day.fillna(1)).astype(np.int32)
-        tables_to_export["Dim_Date"] = build_dim_date_from_series(fdate)
+        tables_to_export["Dim_Date"] = build_dim_date_from_series(fdate, date_str_fmt=date_str_fmt)
 
     # Build Dimension tables with Pareto ABC
     dimensions_cfg = blueprint.get("universal_schema", {}).get("dimensions", [])

@@ -62,15 +62,16 @@ Lưu ý quan trọng:
 
 > Phần mềm **đọc trực tiếp bảng dưới đây và tự động làm sạch dữ liệu** trước khi tạo Star Schema và Dashboard. Kết quả từng bước (số dòng loại bỏ, số ô chuẩn hóa) được ghi vào Tab **Kiểm Toán Dữ Liệu & KPI**.
 >
-> Các hành động hỗ trợ: `drop_duplicates`, `drop_invalid_date`, `clean_numeric`, `filter` (`>= 0`, `> 0`, `between 0 and 1000`, `not_null`), `drop_null`, `fillna` (`0`, `mean`, `median`, `mode`, `Unknown`), `trim`, `trim_upper`, `trim_lower`, `trim_title`, `drop_outliers` (`iqr` / `p01_p99`), `clip_outliers` (`iqr` / `p01_p99`), `flag_01`.
+> Các hành động hỗ trợ: `drop_duplicates`, `format_date` (`dd/mm/yyyy`, `dd-mm-yyyy`, `yyyy-mm-dd`, `mm/dd/yyyy`), `drop_invalid_date`, `cast_type` (`int`, `float`, `float_vn`, `string`, `bool`, `date`), `clean_numeric`, `filter` (`>= 0`, `> 0`, `between 0 and 1000`, `not_null`), `drop_null`, `fillna` (`0`, `mean`, `median`, `mode`, `Unknown`), `trim`, `trim_upper`, `trim_lower`, `trim_title`, `drop_outliers` (`iqr` / `p01_p99`), `clip_outliers` (`iqr` / `p01_p99`), `flag_01`.
 
 | Quy tắc / Cột | Hành động | Điều kiện / Giá trị |
 |---|---|---|
 | `Duplicates` | `drop_duplicates` | `ALL` |
-| `OrderDate` | `drop_invalid_date` | Loại dòng ngày lỗi hoặc trống |
+| `OrderDate` | `format_date` | `dd/mm/yyyy` |
 | `Revenue` | `clean_numeric` | Xóa ký tự `$`, `,`, `%` và ép kiểu số |
 | `Revenue` | `filter` | `>= 0` |
 | `Cost` | `filter` | `>= 0` |
+| `Quantity` | `cast_type` | `int` |
 | `Quantity` | `filter` | `> 0` |
 | `Region` | `trim` | Chuẩn hóa khoảng trắng đầu/cuối |
 | `Region` | `fillna` | `Unknown` |

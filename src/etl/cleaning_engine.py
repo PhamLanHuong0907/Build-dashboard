@@ -67,17 +67,26 @@ def _normalize_action(raw_action: str, raw_target: str, raw_cond: str) -> str:
     combined = f"{a} {t} {c}"
 
     if a in (
-        "drop_duplicates", "drop_invalid_date", "clean_numeric", "filter",
+        "drop_duplicates", "drop_invalid_date", "format_date", "parse_date",
+        "clean_numeric", "cast_type", "filter",
         "fillna", "drop_null", "trim", "trim_upper", "trim_lower", "trim_title",
         "drop_outliers", "clip_outliers", "flag_01",
     ):
-        return a
+        return "format_date" if a == "parse_date" else a
+    if a in ("to_int", "to_float", "to_string", "to_text", "to_bool", "type", "dtype"):
+        return "cast_type"
     if a in ("drop", "dedup", "deduplicate") and ("dup" in t or "trùng" in combined):
         return "drop_duplicates"
     if "trùng" in combined or "duplicate" in combined:
         return "drop_duplicates"
+    if re.search(r"\b(dd[/\-.]mm[/\-.]yyyy|mm[/\-.]dd[/\-.]yyyy|yyyy[/\-.]mm[/\-.]dd)\b", combined, re.I):
+        return "format_date"
+    if ("ngày" in combined or "date" in combined) and any(w in combined for w in ("định dạng", "format", "chuẩn hóa")):
+        return "format_date"
     if ("ngày" in combined or "date" in combined) and any(w in combined for w in ("loại", "xóa", "drop", "lỗi", "invalid")):
         return "drop_invalid_date"
+    if any(w in combined for w in ("ép kiểu", "cast_type", "kiểu số nguyên", "kiểu chuỗi", "kiểu số thực", "kiểu boolean")):
+        return "cast_type"
     if any(w in combined for w in ("clean_numeric", "ký tự", "tiền tệ", "currency", "ép kiểu số")):
         return "clean_numeric"
     if "outlier" in combined or "ngoại lai" in combined:
@@ -176,6 +185,18 @@ def parse_cleaning_rules(md_text: str, csv_columns: List[str]) -> List[Dict[str,
                 m_val = re.search(r"(?:bằng|with|=)\s*['\"`]?([^'\"`,;]+)['\"`]?", raw_action, re.I)
                 if m_val:
                     cond = m_val.group(1).strip()
+            if not cond and action == "format_date":
+                m_fmt = re.search(r"(dd[/\-.]mm[/\-.]yyyy|mm[/\-.]dd[/\-.]yyyy|yyyy[/\-.]mm[/\-.]dd)", f"{raw_action} {raw_target}", re.I)
+                if m_fmt:
+                    cond = m_fmt.group(1)
+            if not cond and action == "cast_type":
+                act_low = raw_action.lower()
+                if act_low in ("to_int", "to_float", "to_string", "to_text", "to_bool"):
+                    cond = act_low.replace("to_", "")
+                else:
+                    m_ty = re.search(r"\b(int64|int|integer|float_vn|float|double|decimal|string|text|str|bool|boolean|date)\b", f"{raw_action} {raw_target}", re.I)
+                    if m_ty:
+                        cond = m_ty.group(1).lower()
 
             _add(target, action, cond, f"{raw_target} -> {raw_action} {raw_cond}".strip())
 
@@ -210,6 +231,71 @@ def parse_cleaning_rules(md_text: str, csv_columns: List[str]) -> List[Dict[str,
 def cleaning_rules_hash(rules: List[Dict[str, Any]]) -> str:
     payload = json.dumps(rules or [], sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _to_pbi_date_format(fmt: str) -> str:
+    """Convert human date pattern (e.g. dd/mm/yyyy) to Power BI formatString (dd/MM/yyyy)."""
+    f = (fmt or "").strip().lower()
+    if f in ("dd/mm/yyyy", "d/m/yyyy"):
+        return "dd/MM/yyyy"
+    if f in ("dd-mm-yyyy", "d-m-yyyy"):
+        return "dd-MM-yyyy"
+    if f in ("dd.mm.yyyy", "d.m.yyyy"):
+        return "dd.MM.yyyy"
+    if f in ("mm/dd/yyyy", "m/d/yyyy"):
+        return "MM/dd/yyyy"
+    if f in ("yyyy/mm/dd",):
+        return "yyyy/MM/dd"
+    if f in ("yyyy-mm-dd",):
+        return "yyyy-MM-dd"
+    return "yyyy-MM-dd"
+
+
+def _to_strftime_format(fmt: str) -> str:
+    f = (fmt or "").strip().lower()
+    mapping = {
+        "dd/mm/yyyy": "%d/%m/%Y",
+        "d/m/yyyy": "%d/%m/%Y",
+        "dd-mm-yyyy": "%d-%m-%Y",
+        "d-m-yyyy": "%d-%m-%Y",
+        "dd.mm.yyyy": "%d.%m.%Y",
+        "mm/dd/yyyy": "%m/%d/%Y",
+        "yyyy/mm/dd": "%Y/%m/%d",
+        "yyyy-mm-dd": "%Y-%m-%d",
+    }
+    return mapping.get(f, "%Y-%m-%d")
+
+
+def extract_date_format_map(rules: List[Dict[str, Any]]) -> Dict[str, str]:
+    """Return {col_name_or_DEFAULT: pbi_formatString} from format_date rules."""
+    out: Dict[str, str] = {}
+    for r in rules or []:
+        if r.get("action") == "format_date" and r.get("condition"):
+            pbi_fmt = _to_pbi_date_format(r["condition"])
+            out[r.get("column", "")] = pbi_fmt
+            if "_primary" not in out:
+                out["_primary"] = pbi_fmt
+                out["_primary_strftime"] = _to_strftime_format(r["condition"])
+    return out
+
+
+def _clean_numeric_series(series: pd.Series, vn_decimal: bool = False) -> Tuple[pd.Series, int]:
+    raw_s = series.astype(str)
+    s = raw_s.str.strip()
+    s = s.str.replace(r"[\$€£₫%\s]", "", regex=True)
+    if vn_decimal:
+        # Vietnamese/European style: 1.250,50 -> 1250.50
+        s = s.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    else:
+        # Auto-detect per cell: if matches ^-?\d{1,3}(\.\d{3})+,\d+$ treat as VN/EU decimal
+        vn_mask = s.str.match(r"^-?\d{1,3}(?:\.\d{3})+,\d+$", na=False)
+        if vn_mask.any():
+            s = s.where(~vn_mask, s.str.replace(".", "", regex=False).str.replace(",", ".", regex=False))
+        s = s.str.replace(",", "", regex=False)
+    s = s.replace({"": np.nan, "nan": np.nan, "None": np.nan, "N/A": np.nan, "null": np.nan, "-": np.nan})
+    num = pd.to_numeric(s, errors="coerce")
+    fixed = int((raw_s != s.fillna("")).sum())
+    return num, fixed
 
 
 def apply_cleaning_rules(df: pd.DataFrame, rules: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
@@ -254,14 +340,75 @@ def apply_cleaning_rules(df: pd.DataFrame, rules: List[Dict[str, Any]]) -> Tuple
                 df[col] = parsed
                 detail = f"Loại {affected_rows:,} dòng có ngày lỗi/trống ở '{col}'"
 
+            elif action == "format_date":
+                raw_s = df[col]
+                fmt_low = cond.lower()
+                dayfirst = fmt_low.startswith("d")
+                exact_strf = _to_strftime_format(cond) if cond else None
+                parsed = None
+                if exact_strf and not pd.api.types.is_datetime64_any_dtype(raw_s):
+                    # Try exact pattern first; if any NaT on non-empty values, fall back to mixed dayfirst parser
+                    s_clean = raw_s.astype(str).str.strip().replace({"": np.nan, "nan": np.nan, "None": np.nan, "N/A": np.nan})
+                    parsed = pd.to_datetime(s_clean, format=exact_strf, errors="coerce")
+                    missing_exact = parsed.isna() & s_clean.notna()
+                    if missing_exact.any():
+                        fallback = pd.to_datetime(s_clean.loc[missing_exact], dayfirst=dayfirst, format="mixed", errors="coerce")
+                        parsed.loc[missing_exact] = fallback
+                else:
+                    parsed = pd.to_datetime(raw_s, dayfirst=dayfirst, errors="coerce")
+
+                keep_null = "keep_null" in fmt_low or "giữ null" in fmt_low
+                bad = parsed.isna()
+                if not keep_null:
+                    affected_rows = int(bad.sum())
+                    if affected_rows > 0:
+                        df = df.loc[~bad].reset_index(drop=True)
+                        parsed = parsed.loc[~bad].reset_index(drop=True)
+                df[col] = parsed
+                fixed_cells = len(df)
+                pbi_fmt = _to_pbi_date_format(cond)
+                detail = f"Chuẩn hóa ngày '{col}' theo {pbi_fmt} (dayfirst={dayfirst}) -> loại {affected_rows:,} dòng sai định dạng"
+
             elif action == "clean_numeric":
-                raw_s = df[col].astype(str)
-                cleaned = raw_s.str.replace(r"[\$,€£₫%\s]", "", regex=True)
-                cleaned = cleaned.replace({"": np.nan, "nan": np.nan, "None": np.nan, "N/A": np.nan, "null": np.nan, "-": np.nan})
-                num = pd.to_numeric(cleaned, errors="coerce")
-                fixed_cells = int((raw_s != cleaned.fillna("")).sum())
+                num, fixed_cells = _clean_numeric_series(df[col], vn_decimal=("vn" in cond.lower()))
                 df[col] = num
                 detail = f"Chuẩn hóa kiểu số cột '{col}' ({fixed_cells:,} ô làm sạch)"
+
+            elif action == "cast_type":
+                t_low = cond.lower().strip()
+                if t_low in ("int", "int64", "integer", "số nguyên"):
+                    num, fixed_cells = _clean_numeric_series(df[col])
+                    rounded = num.round()
+                    df[col] = rounded.astype("Int64") if rounded.isna().any() else rounded.astype(np.int64)
+                    detail = f"Ép kiểu số nguyên (int64) cột '{col}' ({fixed_cells:,} ô chuẩn hóa)"
+                elif t_low in ("float", "double", "decimal", "numeric", "số thực", "float_vn"):
+                    num, fixed_cells = _clean_numeric_series(df[col], vn_decimal=("vn" in t_low))
+                    df[col] = num.astype(np.float64)
+                    detail = f"Ép kiểu số thực (float64) cột '{col}' ({fixed_cells:,} ô chuẩn hóa)"
+                elif t_low in ("string", "text", "str", "chuỗi"):
+                    raw_s = df[col]
+                    s_out = raw_s.astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
+                    s_out = s_out.where(raw_s.notna(), np.nan)
+                    fixed_cells = int((raw_s.astype(str) != s_out.fillna("nan")).sum())
+                    df[col] = s_out
+                    detail = f"Ép kiểu chuỗi (string) cột '{col}' ({fixed_cells:,} ô chuẩn hóa)"
+                elif t_low in ("bool", "boolean"):
+                    raw_s = df[col]
+                    mapped = raw_s.astype(str).str.strip().str.lower().map({
+                        "1": True, "1.0": True, "true": True, "yes": True, "y": True, "có": True,
+                        "0": False, "0.0": False, "false": False, "no": False, "n": False, "không": False,
+                    }).fillna(False).astype(bool)
+                    fixed_cells = len(df)
+                    df[col] = mapped
+                    detail = f"Ép kiểu boolean cột '{col}'"
+                elif t_low in ("date", "datetime"):
+                    parsed = pd.to_datetime(df[col], dayfirst=True, format="mixed", errors="coerce")
+                    df[col] = parsed
+                    fixed_cells = int(parsed.notna().sum())
+                    detail = f"Ép kiểu ngày (datetime) cột '{col}'"
+                else:
+                    status = "SKIPPED"
+                    detail = f"Không hỗ trợ kiểu dữ liệu '{cond}' (dùng: int, float, string, bool, date)"
 
             elif action == "filter":
                 s = pd.to_numeric(df[col], errors="coerce") if not pd.api.types.is_numeric_dtype(df[col]) else df[col]
