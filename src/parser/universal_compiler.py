@@ -90,8 +90,69 @@ def inspect_csv_sample(csv_path: Path, sample_rows: int = 10000) -> Dict[str, An
     }
 
 
+def _parse_pandoc_tables(md_text: str) -> List[List[Dict[str, str]]]:
+    """Parse Pandoc simple/multiline tables (dashed column separators without pipes)."""
+    tables: List[List[Dict[str, str]]] = []
+    lines = md_text.splitlines()
+    n = len(lines)
+    i = 0
+    sep_re = re.compile(r"^\s*-{3,}(?:\s+-{3,})+\s*$")
+    outer_re = re.compile(r"^\s*-{10,}\s*$")
+    while i < n:
+        if sep_re.match(lines[i]) and i > 0 and not outer_re.match(lines[i - 1]) and lines[i - 1].strip():
+            # Compute column slice spans from the dashed separator line
+            spans = [(m.start(), m.end()) for m in re.finditer(r"-{3,}", lines[i])]
+            if len(spans) < 2:
+                i += 1
+                continue
+            hdr_line = lines[i - 1]
+            headers = []
+            for idx_s, (s0, s1) in enumerate(spans):
+                end = spans[idx_s + 1][0] if idx_s + 1 < len(spans) else len(hdr_line)
+                headers.append(hdr_line[s0:end].strip().strip("*`"))
+            i += 1
+            rows: List[Dict[str, str]] = []
+            cur: Optional[List[str]] = None
+            while i < n:
+                ln = lines[i]
+                if outer_re.match(ln):
+                    i += 1
+                    break
+                if not ln.strip():
+                    if cur is not None:
+                        rows.append({headers[j]: " ".join(cur[j].split()) for j in range(len(headers))})
+                        cur = None
+                    i += 1
+                    continue
+                if sep_re.match(ln):
+                    i += 1
+                    continue
+                cells = []
+                for idx_s, (s0, s1) in enumerate(spans):
+                    end = spans[idx_s + 1][0] if idx_s + 1 < len(spans) else len(ln)
+                    cells.append(ln[s0:end].strip() if s0 < len(ln) else "")
+                # In Pandoc simple tables (no blank lines between rows), every non-empty line with col 0 is a new row
+                if cur is None:
+                    cur = cells
+                elif cells[0]:
+                    rows.append({headers[j]: " ".join(cur[j].split()) for j in range(len(headers))})
+                    cur = cells
+                else:
+                    for j in range(len(headers)):
+                        if cells[j]:
+                            cur[j] = (cur[j] + " " + cells[j]).strip()
+                i += 1
+            if cur is not None:
+                rows.append({headers[j]: " ".join(cur[j].split()) for j in range(len(headers))})
+            if rows and any(h for h in headers):
+                tables.append(rows)
+            continue
+        i += 1
+    return tables
+
+
 def _parse_markdown_tables(md_text: str) -> List[List[Dict[str, str]]]:
-    """Extract all GitHub-Flavored Markdown tables as list of dicts."""
+    """Extract all GitHub-Flavored Markdown pipe tables AND Pandoc dashed tables as list of dicts."""
     tables = []
     lines = md_text.splitlines()
     i = 0
@@ -115,6 +176,7 @@ def _parse_markdown_tables(md_text: str) -> List[List[Dict[str, str]]]:
                     tables.append(rows)
                 continue
         i += 1
+    tables.extend(_parse_pandoc_tables(md_text))
     return tables
 
 
@@ -124,23 +186,52 @@ def _normalize_dax_fact_refs(expr: str, fact_table: str) -> str:
     if fact_table == "Fact_Flight":
         out = re.sub(r"('?Fact_Flight'?)\[Cancelled\]", r"\1[IsCancelled]", out)
         out = re.sub(r"('?Fact_Flight'?)\[Diverted\]", r"\1[IsDiverted]", out)
+        out = re.sub(r"('?Fact_Flight'?)\[DepDel15\]", r"\1[IsDepDelay15]", out)
+        out = re.sub(r"('?Fact_Flight'?)\[ArrDel15\]", r"\1[IsArrDelay15]", out)
     return out
 
 
+def _split_dax_measures(block: str) -> List[Tuple[str, str]]:
+    """Split a ```DAX``` block containing 1 or MANY measure definitions into [(name, expr), ...]."""
+    results: List[Tuple[str, str]] = []
+    cur_name: Optional[str] = None
+    cur_lines: List[str] = []
+    paren_depth = 0
+    header_re = re.compile(r"^([A-Za-zÀ-ỹ][A-Za-z0-9À-ỹ _%()/+.\-]{0,80}?)\s*=\s*(.*)$")
+
+    for raw_line in block.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith(("--", "//")):
+            continue
+        is_indented = raw_line[:1] in (" ", "\t")
+        m = header_re.match(raw_line) if (not is_indented and paren_depth == 0) else None
+        if m and not re.match(r"^(VAR|RETURN|IF|DIVIDE|CALCULATE|FILTER|SUM|AVERAGE|COUNTROWS|MIN|MAX|MEDIAN)\b", m.group(1).strip(), re.I):
+            if cur_name and cur_lines:
+                results.append((cur_name, " ".join(" ".join(cur_lines).split())))
+            cur_name = m.group(1).strip().strip("`*")
+            rhs = m.group(2).strip()
+            cur_lines = [rhs] if rhs else []
+            paren_depth = rhs.count("(") - rhs.count(")")
+        elif cur_name is not None:
+            cur_lines.append(stripped)
+            paren_depth = max(0, paren_depth + stripped.count("(") - stripped.count(")"))
+
+    if cur_name and cur_lines:
+        results.append((cur_name, " ".join(" ".join(cur_lines).split())))
+    return results
+
+
 def _extract_dax_code_blocks(md_text: str, fact_table: str) -> List[Dict[str, str]]:
-    """Extract DAX measures from ```DAX ... ``` code blocks in Requirement.md."""
-    pattern = re.compile(r"```(?:dax|DAX)\s*\n(.*?)```", re.DOTALL)
+    """Extract ALL DAX measures from ```DAX / ``` dax code blocks (supporting multiple measures per block)."""
+    pattern = re.compile(r"```\s*(?:dax|DAX)\s*\n(.*?)```", re.DOTALL)
     measures = []
     for match in pattern.finditer(md_text):
         block = match.group(1).strip()
-        if "=" in block:
-            parts = block.split("=", 1)
-            m_name = parts[0].strip()
-            m_expr = " ".join(parts[1].strip().split())
-            m_expr = _normalize_dax_fact_refs(m_expr, fact_table)
+        for m_name, raw_expr in _split_dax_measures(block):
+            m_expr = _normalize_dax_fact_refs(raw_expr, fact_table)
             low = m_name.lower()
             fmt = "0.00%" if any(w in low for w in ["%", "rate", "otp", "share", "pct", "percent", "tỷ lệ", "margin"]) else (
-                "0.0" if any(w in low for w in ["avg", "average", "variance", "median", "p90", "p95", "(p)", "(mph)"]) else "#,##0"
+                "0.0" if any(w in low for w in ["avg", "average", "variance", "median", "p90", "p95", "(p)", "(mph)", "(min)"]) else "#,##0"
             )
             measures.append({
                 "name": m_name,
@@ -516,7 +607,7 @@ def _parse_explicit_dashboards_from_md(
     Handles both 3-hash (`### EX01-01`) and 4-hash (`#### EX01-01`) chart headers,
     bold bullets (`- **Loại:**`), and `Table[Column]` references.
     """
-    dash_pattern = re.compile(r"^#{1,2}\s+DASHBOARD\s*\d*\s*[:–-]\s*(.+)$", re.MULTILINE | re.IGNORECASE)
+    dash_pattern = re.compile(r"^#{1,4}\s+(?:#\s+)?DASHBOARD\s*\d*\s*[:–-]+\s*(.+)$", re.MULTILINE | re.IGNORECASE)
     matches = list(dash_pattern.finditer(md_text))
     if not matches:
         return []
@@ -532,7 +623,7 @@ def _parse_explicit_dashboards_from_md(
         if next_h1:
             section_text = section_text[:next_h1.start()]
 
-        id_parts = re.split(r"\s+[–-]\s+", header_text, maxsplit=1)
+        id_parts = re.split(r"\s+(?:--|–|-)\s+", header_text, maxsplit=1)
         dash_id = id_parts[0].strip() if len(id_parts) > 1 else f"DB-0{idx+1}"
         dash_title_short = id_parts[1].strip() if len(id_parts) > 1 else header_text
         dash_tab_name = f"{dash_id} {dash_title_short}"[:30]
@@ -574,9 +665,9 @@ def _parse_explicit_dashboards_from_md(
                     "sync_group": f"Sync_{dcfg['table_name']}_{dcfg['label_column']}",
                 })
 
-        # 2. Parse KPI Cards (from table or numbered list under `## KPI Cards` / `### KPI Cards`)
+        # 2. Parse KPI Cards (from table or numbered list under `##` / `###` / `#### KPI Cards`)
         kpis = []
-        kpi_sec_match = re.search(r"^#{2,3}\s+[\d.]*\s*KPI\s*Cards?[^\n]*\n(.*?)(?=\n#{2,3}\s+|\Z)", section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+        kpi_sec_match = re.search(r"^#{2,4}\s+[\d.]*\s*KPI\s*Cards?[^\n]*\n(.*?)(?=\n#{2,4}\s+|\Z)", section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
         if kpi_sec_match:
             kpi_block = kpi_sec_match.group(1)
             kpi_tbls = _parse_markdown_tables(kpi_block)
@@ -599,14 +690,14 @@ def _parse_explicit_dashboards_from_md(
             for k_i, m_obj in enumerate(dax_measures[:6]):
                 kpis.append({"id": f"KPI_{dash_id.replace('-','')}_{k_i+1}", "title": m_obj["name"], "measure": m_obj["name"], "tooltip_measures": []})
 
-        # 3. Parse Charts (`### EX01-01 – ...` OR `#### EX01-01 – ...`)
-        chart_pattern = re.compile(r"^#{3,4}\s+([A-Z]{2,4}\d{2}-\d{2}\s+[–-]\s+.+)$", re.MULTILINE)
+        # 3. Parse Charts (`### EX01-01 – ...`, `#### EX01-01 -- ...`, or `##### FL01-01 – ...`)
+        chart_pattern = re.compile(r"^#{3,5}\s+([A-Z]{2,4}\d{2}-\d{2}\s+(?:--|–|-)\s+.+)$", re.MULTILINE)
         chart_matches = list(chart_pattern.finditer(section_text))
         if not chart_matches:
-            # Fallback to any ### or #### under Danh sách biểu đồ
-            charts_sec = re.search(r"^#{2,3}\s+[\d.]*\s*Danh sách biểu đồ[^\n]*\n(.*?)(?=\n#{1,2}\s+|\Z)", section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+            # Fallback to any ### / #### / ##### under Danh sách biểu đồ
+            charts_sec = re.search(r"^#{2,4}\s+[\d.]*\s*Danh sách biểu đồ[^\n]*\n(.*?)(?=\n#{1,3}\s+|\Z)", section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
             if charts_sec:
-                chart_matches = list(re.finditer(r"^#{3,4}\s+(.+)$", charts_sec.group(1), re.MULTILINE))
+                chart_matches = list(re.finditer(r"^#{3,5}\s+(.+)$", charts_sec.group(1), re.MULTILINE))
                 c_text_base = charts_sec.group(1)
             else:
                 c_text_base = section_text
