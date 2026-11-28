@@ -181,13 +181,20 @@ def _parse_markdown_tables(md_text: str) -> List[List[Dict[str, str]]]:
 
 
 def _normalize_dax_fact_refs(expr: str, fact_table: str) -> str:
-    """Normalize generic fact table aliases (Fact_Main / Fact_Flight_Operations / Fact_Flight) and aviation flag columns."""
+    """Normalize generic fact table aliases, aviation flag columns, and illegal AVERAGE(colA - colB) syntax."""
     out = re.sub(r"\b(Fact_Flight_Operations|Fact_Main|Fact_Flight)\b", fact_table, expr)
     if fact_table == "Fact_Flight":
         out = re.sub(r"('?Fact_Flight'?)\[Cancelled\]", r"\1[IsCancelled]", out)
         out = re.sub(r"('?Fact_Flight'?)\[Diverted\]", r"\1[IsDiverted]", out)
         out = re.sub(r"('?Fact_Flight'?)\[DepDel15\]", r"\1[IsDepDelay15]", out)
         out = re.sub(r"('?Fact_Flight'?)\[ArrDel15\]", r"\1[IsArrDelay15]", out)
+    # Power BI forbids arithmetic inside AVERAGE/SUM/MIN/MAX(colA - colB); auto-upgrade to AVERAGEX/SUMX/MINX/MAXX
+    out = re.sub(
+        r"\b(AVERAGE|SUM|MIN|MAX)\(\s*('?[A-Za-z0-9_]+'?\[[^\]]+\]\s*[\+\-\*/]\s*'?[A-Za-z0-9_]+'?\[[^\]]+\])\s*\)",
+        lambda m: f"{m.group(1).upper()}X('{fact_table}', {m.group(2)})",
+        out,
+        flags=re.IGNORECASE,
+    )
     return out
 
 
@@ -205,7 +212,8 @@ def _split_dax_measures(block: str) -> List[Tuple[str, str]]:
             continue
         is_indented = raw_line[:1] in (" ", "\t")
         m = header_re.match(raw_line) if (not is_indented and paren_depth == 0) else None
-        if m and not re.match(r"^(VAR|RETURN|IF|DIVIDE|CALCULATE|FILTER|SUM|AVERAGE|COUNTROWS|MIN|MAX|MEDIAN)\b", m.group(1).strip(), re.I):
+        # Only skip DAX VAR/RETURN statements (NOT measure names starting with "Average ...", "Total ...", "Max ...")
+        if m and not re.match(r"^(VAR|RETURN)\b", m.group(1).strip(), re.I) and "[" not in m.group(1):
             if cur_name and cur_lines:
                 results.append((cur_name, " ".join(" ".join(cur_lines).split())))
             cur_name = m.group(1).strip().strip("`*")
@@ -319,6 +327,7 @@ def _get_base_aviation_dax_measures() -> List[Dict[str, Any]]:
     """Comprehensive base DAX measures for the US Flight Operations Star Schema, including aliases used across different Requirement.md versions."""
     return [
         {"name": "Total Flights", "folder": "01. Volume & Status", "expression": "COUNTROWS('Fact_Flight')", "formatString": "#,##0", "description": "Tổng số chuyến bay theo lịch trình"},
+        {"name": "Total Routes", "folder": "01. Volume & Status", "expression": "DISTINCTCOUNT('Fact_Flight'[RouteKey])", "formatString": "#,##0", "description": "Tổng số tuyến bay có hướng"},
         {"name": "Cancelled Flights", "folder": "01. Volume & Status", "expression": "CALCULATE([Total Flights], 'Fact_Flight'[IsCancelled] = 1)", "formatString": "#,##0", "description": "Tổng số chuyến bay bị hủy"},
         {"name": "Cancellation Rate", "folder": "01. Volume & Status", "expression": "DIVIDE([Cancelled Flights], [Total Flights])", "formatString": "0.00%", "description": "Tỷ lệ hủy chuyến"},
         {"name": "Cancellation Rate %", "folder": "01. Volume & Status", "expression": "DIVIDE([Cancelled Flights], [Total Flights])", "formatString": "0.00%", "description": "Tỷ lệ hủy chuyến (%)"},

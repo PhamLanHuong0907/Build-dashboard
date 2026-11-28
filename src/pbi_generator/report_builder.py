@@ -457,6 +457,14 @@ class ReportBuilder:
         if is_custom_source and not use_appsource_native:
             wells = self._remap_custom_wells_to_builtin(wells, effective_vtype)
 
+        # Power BI strict visual rules:
+        # 1. Charts cannot have BOTH a Legend (Series) AND multiple Y measures -> drop Series when len(Y) > 1
+        if "Series" in wells and len(wells.get("Y", [])) > 1:
+            wells.pop("Series", None)
+        # 2. matrix / tableEx / card / slicer / kpi / gauge do NOT support a Tooltips projection bucket
+        if effective_vtype in ("matrix", "tableEx", "card", "cardVisual", "multiRowCard", "slicer", "advancedSlicerVisual", "textSlicer", "kpi", "gauge"):
+            wells.pop("Tooltips", None)
+
         alias_map: Dict[str, str] = {}
         from_list: List[Dict[str, Any]] = []
         select_list: List[Dict[str, Any]] = []
@@ -470,9 +478,11 @@ class ReportBuilder:
 
         first_cat_item = None
         first_val_item = None
+        primary_qrefs: Set[str] = set()
 
         for role_key, field_items in wells.items():
             proj_items = []
+            seen_in_role: Set[str] = set()
             for item in field_items:
                 is_m = "measure" in item and bool(item.get("measure"))
                 fname = item.get("measure") if is_m else item.get("column")
@@ -480,6 +490,13 @@ class ReportBuilder:
                     continue
                 tbl = item.get("table") or self.fact_table
                 q_ref, expr_node = self._add_field_to_query(tbl, fname, is_m, alias_map, from_list, select_list, seen_refs)
+                if q_ref in seen_in_role:
+                    continue
+                if role_key == "Tooltips" and q_ref in primary_qrefs:
+                    continue
+                seen_in_role.add(q_ref)
+                if role_key != "Tooltips":
+                    primary_qrefs.add(q_ref)
                 expr_by_qref[q_ref] = expr_node
                 p_entry: Dict[str, Any] = {"queryRef": q_ref}
                 if role_key in active_roles and not is_m:
